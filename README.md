@@ -14,8 +14,8 @@ A Python bot that monitors Reddit threads, downloads media content, and stores e
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/redditbot.git
-cd redditbot
+git clone https://github.com/yumiaura/RedditBot.git
+cd RedditBot
 ```
 
 2. Create and activate virtual environment:

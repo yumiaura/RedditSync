@@ -32,10 +32,40 @@ async def reddit_client(
 
 def extract_media_url(submission: praw.models.Submission) -> Optional[str]:
     """Extract media URL from submission."""
-    if hasattr(submission, 'url_overridden_by_dest'):
-        return submission.url_overridden_by_dest
-    elif hasattr(submission, 'url'):
-        return submission.url
+    try:
+        # Для галерей берем URL первого изображения из media_metadata
+        if hasattr(submission, 'is_gallery') and submission.is_gallery:
+            if hasattr(submission, 'media_metadata'):
+                for media_id in submission.media_metadata:
+                    item = submission.media_metadata[media_id]
+                    if 'p' in item and item['p']:
+                        # Берем изображение максимального размера
+                        largest = max(item['p'], key=lambda x: x.get('x', 0))
+                        if 'u' in largest:
+                            return largest['u'].replace('preview.redd.it', 'i.redd.it')
+                    elif 's' in item and item['s'].get('u'):
+                        return item['s']['u'].replace('preview.redd.it', 'i.redd.it')
+
+        # Для видео используем secure_media
+        if submission.is_video and hasattr(submission, 'secure_media'):
+            if submission.secure_media and 'reddit_video' in submission.secure_media:
+                return submission.secure_media['reddit_video'].get('fallback_url')
+
+        # Для обычных постов с превью
+        if hasattr(submission, 'preview') and 'images' in submission.preview:
+            image = submission.preview['images'][0]
+            if 'source' in image:
+                return image['source']['url'].replace('preview.redd.it', 'i.redd.it')
+
+        # Прямая ссылка на медиа
+        if hasattr(submission, 'url_overridden_by_dest'):
+            return submission.url_overridden_by_dest
+        elif hasattr(submission, 'url'):
+            return submission.url
+
+    except Exception as e:
+        logger.error(f"Error extracting media URL from submission {submission.id}: {e}")
+    
     return None
 
 def submission_to_dict(submission: praw.models.Submission, thread_id: str) -> Dict[str, Any]:

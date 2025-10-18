@@ -45,30 +45,43 @@ def normalize_media_url(url: str) -> str:
     # Convert imgur links to direct
     if 'imgur.com' in parsed.netloc:
         if not url.endswith(('.jpg', '.png', '.gif')):
-            return url + '.jpg'
+            if '/a/' in parsed.path or '/gallery/' in parsed.path:
+                # Это галерея, берем ID первого изображения
+                gallery_id = parsed.path.split('/')[-1]
+                return f"https://i.imgur.com/{gallery_id}.jpg"
+            else:
+                # Одиночное изображение
+                image_id = parsed.path.split('/')[-1]
+                return f"https://i.imgur.com/{image_id}.jpg"
     
     # Handle reddit media and chats
     if 'reddit.com' in parsed.netloc or 'redd.it' in parsed.netloc:
-        # Convert chat previews to actual content
-        if '/chat' in parsed.path:
-            # Extract chat content ID and convert to direct media URL
-            chat_id = re.search(r'/chat/([^/]+)', parsed.path)
-            if chat_id:
-                return f"https://reddit-uploaded-media.s3-accelerate.amazonaws.com/chat/{chat_id.group(1)}"
-        # Handle reddit gallery
-        elif 'gallery' in parsed.path:
-            # Extract gallery ID and get first image
-            gallery_id = re.search(r'/gallery/([^/]+)', parsed.path)
-            if gallery_id:
-                return f"https://i.redd.it/{gallery_id.group(1)}.jpg"
-        # Convert preview links to direct media
-        elif 'preview.redd.it' in parsed.netloc:
-            return url.replace('preview.redd.it', 'i.redd.it')
+        # Обработка видео
+        if 'v.redd.it' in parsed.netloc:
+            return url  # Будет обработано в download_file
+        
+        # Обработка изображений
+        if 'i.redd.it' in parsed.netloc:
+            # Убираем все параметры запроса
+            return f"https://i.redd.it{parsed.path}"
+        
+        # Convert preview links to direct
+        if 'preview.redd.it' in parsed.netloc:
+            # Декодируем URL если он закодирован
+            decoded_url = url.replace('&amp;', '&')
+            if 'width=' in decoded_url:
+                # Удаляем параметры размера для получения оригинала
+                return re.sub(r'\?.*$', '', decoded_url).replace('preview.redd.it', 'i.redd.it')
+            return decoded_url.replace('preview.redd.it', 'i.redd.it')
+        
+        # Convert reddit.com/media to direct links
+        if '/media/' in parsed.path:
+            media_id = parsed.path.split('/')[-1]
+            return f"https://i.redd.it/{media_id}"
     
-    # Remove tracking parameters and queries that might cause loading screens
-    clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    # Remove tracking parameters and queries
     if parsed.path.endswith(('.jpg', '.png', '.gif', '.mp4', '.webm', '.webp')):
-        return clean_url
+        return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
     
     return url
 

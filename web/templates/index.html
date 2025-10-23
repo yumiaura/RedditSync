@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Reddit News List</title>
+</head>
+<body>
+    <h1>Reddit News</h1>
+    <ul>
+    {% for item in news %}
+        <li>
+            <a href="{{ url_for('news_detail', news_id=item['id']) }}">{{ item['title'] or item['external_id'] }}</a>
+            {% if item['media_uid'] %}
+                <span> [media]</span>
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+</body>
+</html>

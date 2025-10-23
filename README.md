@@ -94,7 +94,7 @@ Reddit Sync runs with an intelligent background scheduler:
 
 - **Initial Sync**: Starts 10 seconds after application launch
 - **Regular Sync**: Every 2 minutes, processes up to 5 new posts
-- **Cleanup Task**: Every 6 hours (0:00, 6:00, 12:00, 18:00) for maintenance
+- **Automatic Database Setup**: Creates tables automatically on first run
 - **Metrics Update**: Automatically updates scores and comment counts for existing posts
 
 The scheduler prevents overlapping tasks and includes rate limiting to respect Reddit's API guidelines.
@@ -126,7 +126,6 @@ RedditSync/
 ├── media/                    # Downloaded media files (created automatically)
 ├── requirements.txt          # Python dependencies
 ├── env.example              # Environment template
-├── db_schema.sql           # Database schema
 └── README.md               # This file
 ```
 

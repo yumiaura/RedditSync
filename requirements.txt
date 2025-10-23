@@ -1,2 +1,31 @@
+# Core dependencies
 requests
 python-dotenv
+
+# Reddit API
+praw
+
+# Async HTTP client
+httpx
+
+# File I/O
+aiofiles
+
+# Database ORM
+sqlalchemy>=2.0.0
+aiosqlite
+
+# scheduler
+
+
+# Retry logic
+tenacity
+
+# Scheduler
+apscheduler
+
+# Web interface (optional)
+flask
+pillow
+python-magic
+pymupdf

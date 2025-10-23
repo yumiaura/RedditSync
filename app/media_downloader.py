@@ -17,7 +17,10 @@ import aiofiles
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .utils import generate_uid, extract_file_extension, normalize_media_url
+try:
+    from .utils import generate_uid, extract_file_extension, normalize_media_url
+except ImportError:
+    from utils import generate_uid, extract_file_extension, normalize_media_url
 
 logger = logging.getLogger(__name__)
 

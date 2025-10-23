@@ -73,11 +73,13 @@ def submission_to_dict(submission: praw.models.Submission, thread_id: str) -> Di
     return {
         'external_id': submission.id,
         'thread_id': thread_id,
-        'author': str(submission.author),
+        'author': str(submission.author) if submission.author else '[deleted]',
         'created_utc': int(submission.created_utc),
         'title': submission.title,
         'body': submission.selftext,
         'media_url': extract_media_url(submission),
+        'score': submission.score,
+        'comment_count': submission.num_comments,
         'raw_json': str(submission)
     }
 

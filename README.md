@@ -1,15 +1,17 @@
 # Reddit Sync
 
-A modern Python application for monitoring Reddit threads, downloading media content, and storing everything in a local SQLite database. Built with asynchronous architecture for optimal performance and scalability.
+A modern Python application for monitoring Reddit threads, downloading media content, and storing everything in a local SQLite database. Built with asynchronous architecture and intelligent scheduling for optimal performance and scalability.
 
 ## ✨ Features
 
+- **Automated Scheduling**: Background scheduler with configurable intervals for continuous monitoring
 - **Thread Monitoring**: Automatically tracks specified Reddit threads and subreddits
+- **Enhanced Metrics**: Collects upvotes, comment counts, and engagement statistics
 - **Media Download**: Downloads images, videos, and other media content from posts
-- **SQLite Storage**: Stores all data in a structured SQLite database
+- **SQLite Storage**: Stores all data in a structured SQLite database with SQLAlchemy ORM
 - **Concurrent Processing**: Supports concurrent media downloads with configurable limits
 - **OAuth2 Authentication**: Secure Reddit API access using refresh tokens
-- **Web Interface**: Optional web interface for browsing downloaded content
+- **Web Interface**: Modern web interface for browsing downloaded content with metrics
 - **Error Handling**: Robust error handling with exponential backoff retry logic
 - **Content Filtering**: Intelligent duplicate detection and content validation
 
@@ -48,6 +50,15 @@ A modern Python application for monitoring Reddit threads, downloading media con
    python tools/2_check_env.py
    ```
 
+5. **Database migration (if upgrading from older version)**:
+   ```bash
+   # If you have an existing database, migrate it to the new schema
+   python tools/migrate_add_metrics.py
+   
+   # Test the scheduler implementation (optional)
+   python tools/test_scheduler.py
+   ```
+
 ### Configuration
 
 Create a `.env` file in the project root based on `env.example`:
@@ -70,12 +81,23 @@ REDIRECT_PORT=8000
 ### Running the Application
 
 ```bash
-# Run the main sync application
-python -m app.main
+# Run the main sync application with scheduler
+python app/main.py
 
 # Or run the web interface (optional)
 cd web && python app.py
 ```
+
+## 📅 Scheduler Configuration
+
+Reddit Sync runs with an intelligent background scheduler:
+
+- **Initial Sync**: Starts 10 seconds after application launch
+- **Regular Sync**: Every 2 minutes, processes up to 5 new posts
+- **Cleanup Task**: Every 6 hours (0:00, 6:00, 12:00, 18:00) for maintenance
+- **Metrics Update**: Automatically updates scores and comment counts for existing posts
+
+The scheduler prevents overlapping tasks and includes rate limiting to respect Reddit's API guidelines.
 
 ## 📁 Project Structure
 
@@ -83,9 +105,10 @@ cd web && python app.py
 RedditSync/
 ├── app/                      # Core application modules
 │   ├── __init__.py          # Package initialization
-│   ├── main.py              # Application entry point
+│   ├── main.py              # Application entry point with scheduler
 │   ├── config.py            # Configuration management
-│   ├── db.py                # Database operations
+│   ├── db.py                # Database operations (SQLAlchemy ORM)
+│   ├── models.py            # Database models (SQLAlchemy)
 │   ├── reddit_client.py     # Reddit API client
 │   ├── media_downloader.py  # Media download functionality
 │   ├── sync_worker.py       # Synchronization orchestration
@@ -96,7 +119,7 @@ RedditSync/
 │   └── CODE_STYLE_EN.md     # Code style guidelines
 ├── tools/                    # Utility scripts
 │   ├── 1_get_refresh_token.py  # OAuth2 token generator
-│   └── 2_check_env.py          # Environment validator
+│   ├── 2_check_env.py          # Environment validator
 ├── web/                      # Web interface (optional)
 │   ├── app.py               # Flask web application
 │   └── templates/           # HTML templates
@@ -107,15 +130,28 @@ RedditSync/
 └── README.md               # This file
 ```
 
-## 🗄️ Database Schema
+## 🗄️ Database Technology
+
+The application uses **SQLAlchemy 2.0** with async support as the ORM (Object-Relational Mapping) layer:
+
+- **Database Engine**: SQLite with aiosqlite for async operations
+- **ORM**: SQLAlchemy 2.0 with modern async/await syntax
+- **Models**: Fully typed SQLAlchemy models with relationships
+- **Migrations**: Built-in migration tool for upgrading from raw SQL
+
+### Database Schema
 
 The application uses three main tables:
 
 - **`subscriptions`**: List of monitored Reddit threads/subreddits
-- **`news`**: Posts and comments with metadata and content
+- **`news`**: Posts and comments with metadata and content  
 - **`media`**: Downloaded media files with metadata and references
 
-For detailed schema information, see `db_schema.sql`.
+The ORM models provide:
+- **Type safety** with Python type hints
+- **Relationship mapping** between tables
+- **Automatic query generation** and optimization
+- **Connection pooling** and session management
 
 ## ⚙️ Configuration Options
 
@@ -178,9 +214,13 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🎯 Roadmap
 
-- [ ] Webhook notifications for new content
+- [x] **SQLAlchemy ORM integration** 
+- [x] **Background scheduler with automated tasks**
+- [x] **Enhanced metrics collection (scores, comments)**
+- [ ] Notifications for new content
 - [ ] Advanced content filtering and categorization
 - [ ] Multi-subreddit batch operations
 - [ ] Export functionality (JSON, CSV)
 - [ ] Docker containerization
 - [ ] RESTful API for external integrations
+- [ ] Database performance optimizations and indexing

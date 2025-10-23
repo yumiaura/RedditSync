@@ -2,23 +2,89 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ item['title'] or item['external_id'] }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ item['title'] or item['external_id'] }} - Reddit Sync</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; line-height: 1.6; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 15px; margin-bottom: 20px; }
+        .nav { margin-bottom: 25px; }
+        .nav a { text-decoration: none; color: #007acc; font-weight: bold; }
+        .nav a:hover { text-decoration: underline; }
+        .meta { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #007acc; }
+        .meta div { margin-bottom: 8px; }
+        .meta strong { color: #333; }
+        .content { margin: 20px 0; }
+        .body-text { background: #fff; padding: 20px; border: 1px solid #ddd; border-radius: 5px; white-space: pre-wrap; }
+        .media-section { margin-top: 30px; }
+        .media-section h2 { color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        .media-container { text-align: center; margin: 20px 0; }
+        .media-container img, .media-container video { max-width: 100%; height: auto; border-radius: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .media-container iframe { width: 100%; height: 400px; border: none; border-radius: 5px; }
+        .external-link { color: #666; font-size: 0.9em; margin-top: 10px; }
+        .external-link a { color: #007acc; }
+    </style>
 </head>
 <body>
-    <h1>{{ item['title'] or item['external_id'] }}</h1>
-    <p><a href="{{ url_for('index') }}">Back</a></p>
-    <p><strong>Author:</strong> {{ item['author'] }}</p>
-    <p><strong>Date:</strong> {{ item['added_at'] }}</p>
-    <p><strong>Body:</strong> {{ item['body'] }}</p>
-    {% if media_url %}
-        <h2>Media</h2>
-        {% if media_url.endswith('.jpg') or media_url.endswith('.png') or media_url.endswith('.gif') or media_url.endswith('.webp') %}
-            <img src="{{ media_url }}" alt="media" style="max-width:600px;">
-        {% elif media_url.endswith('.mp4') or media_url.endswith('.webm') %}
-            <video src="{{ media_url }}" controls style="max-width:600px;"></video>
-        {% else %}
-            <iframe src="{{ media_url }}" style="width:600px; height:400px; border:none;"></iframe>
+    <div class="container">
+        <div class="nav">
+            <a href="{{ url_for('index') }}">← Back to News List</a>
+        </div>
+        
+        <h1>{{ item['title'] or item['external_id'] }}</h1>
+        
+        <div class="meta">
+            <div><strong>Author:</strong> {{ item['author'] or 'Unknown' }}</div>
+            <div><strong>Thread:</strong> {{ item['thread_id'] or 'Unknown' }}</div>
+            <div><strong>Reddit ID:</strong> {{ item['external_id'] }}</div>
+            <div><strong>Score:</strong> {{ item['score'] or 0 }} points</div>
+            <div><strong>Comments:</strong> {{ item['comment_count'] or 0 }}</div>
+            <div><strong>Posted:</strong> 
+                {% if item['created_utc'] %}
+                    {{ moment(item['created_utc']).format('YYYY-MM-DD HH:mm:ss') }}
+                {% else %}
+                    Unknown
+                {% endif %}
+            </div>
+            <div><strong>Added to sync:</strong> 
+                {% if item['added_at'] %}
+                    {{ item['added_at'].strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                    Unknown
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if item['body'] %}
+        <div class="content">
+            <h3>Content</h3>
+            <div class="body-text">{{ item['body'] }}</div>
+        </div>
         {% endif %}
-    {% endif %}
+        
+        {% if media_url %}
+        <div class="media-section">
+            <h2>Media</h2>
+            <div class="media-container">
+                {% if media_url.endswith('.jpg') or media_url.endswith('.png') or media_url.endswith('.gif') or media_url.endswith('.webp') or media_url.endswith('.jpeg') %}
+                    <img src="{{ media_url }}" alt="Media content" loading="lazy">
+                {% elif media_url.endswith('.mp4') or media_url.endswith('.webm') %}
+                    <video src="{{ media_url }}" controls preload="metadata">
+                        Your browser does not support the video tag.
+                    </video>
+                {% else %}
+                    <iframe src="{{ media_url }}" title="Media content">
+                        Your browser does not support iframes.
+                    </iframe>
+                {% endif %}
+            </div>
+            {% if item['media_url'] %}
+            <div class="external-link">
+                <strong>Original URL:</strong> <a href="{{ item['media_url'] }}" target="_blank">{{ item['media_url'] }}</a>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
 </body>
 </html>

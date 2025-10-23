@@ -2,19 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Reddit News List</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Sync - News</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 10px; }
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 15px; text-decoration: none; color: #007acc; font-weight: bold; }
+        .nav a:hover { text-decoration: underline; }
+        .news-item { border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin-bottom: 15px; background: #f9f9f9; }
+        .news-item h3 { margin: 0 0 10px 0; }
+        .news-item h3 a { color: #333; text-decoration: none; }
+        .news-item h3 a:hover { color: #007acc; }
+        .news-item .meta { color: #666; font-size: 0.9em; }
+        .media-badge { background: #007acc; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; margin-left: 10px; }
+    </style>
 </head>
 <body>
-    <h1>Reddit News</h1>
-    <ul>
-    {% for item in news %}
-        <li>
-            <a href="{{ url_for('news_detail', news_id=item['id']) }}">{{ item['title'] or item['external_id'] }}</a>
-            {% if item['media_uid'] %}
-                <span> [media]</span>
-            {% endif %}
-        </li>
-    {% endfor %}
-    </ul>
+    <div class="container">
+        <div class="nav">
+            <a href="{{ url_for('subscriptions') }}">View Subscriptions</a>
+        </div>
+        
+        <h1>Reddit Sync - Latest News</h1>
+        
+        {% if news %}
+            {% for item in news %}
+            <div class="news-item">
+                <h3>
+                    <a href="{{ url_for('news_detail', news_id=item['id']) }}">
+                        {{ item['title'] or item['external_id'] }}
+                    </a>
+                    {% if item['media_uid'] %}
+                        <span class="media-badge">media</span>
+                    {% endif %}
+                </h3>
+                <div class="meta">
+                    <strong>Author:</strong> {{ item['author'] or 'Unknown' }} | 
+                    <strong>Thread:</strong> {{ item['thread_id'] or 'Unknown' }} | 
+                    <strong>Score:</strong> {{ item['score'] or 0 }} points | 
+                    <strong>Comments:</strong> {{ item['comment_count'] or 0 }} | 
+                    <strong>Added:</strong> {{ item['added_at'].strftime('%Y-%m-%d %H:%M:%S') if item['added_at'] else 'Unknown' }}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>No news items found.</p>
+        {% endif %}
+    </div>
 </body>
 </html>

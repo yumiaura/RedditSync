@@ -19,24 +19,26 @@ import fitz  # PyMuPDF for PDF processing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
 
 from app import db
+from app.config import database_path, media_dir_path
 from app.models import News, Media, Subscription
 
 app = Flask(__name__)
 
-# Configuration
-MEDIA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'media'))
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'db.sqlite'))
+# Configuration — same env-driven paths as the sync engine (DB_PATH,
+# MEDIA_DIR), so both parts always open the same files
+MEDIA_DIR = str(media_dir_path())
+DB_PATH = str(database_path())
 
 # Global variable to track if database is initialized
-_db_initialized = False
+db_initialized = False
 
 
 async def ensure_db_initialized():
     """Ensure database is initialized for web interface."""
-    global _db_initialized
-    if not _db_initialized:
+    global db_initialized
+    if not db_initialized:
         await db.init_db(DB_PATH)
-        _db_initialized = True
+        db_initialized = True
 
 
 def run_async(coro):
@@ -223,7 +225,7 @@ def go_back():
 @app.teardown_appcontext
 def close_db_connections(error):
     """Clean up database connections."""
-    if _db_initialized:
+    if db_initialized:
         try:
             run_async(db.close_db())
         except Exception as e:

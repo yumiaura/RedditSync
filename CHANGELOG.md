@@ -80,3 +80,22 @@
   `client.stream(...)` — a context manager, not a response — so it raised at
   runtime; the preview is now read via `aiter_bytes` and the body re-requested
   with a fresh stream (`fix/security-hardening`).
+- One database layer instead of two: the unused `DatabaseManager` class is
+  deleted and `main.py`/`sync_worker.py` now share the module-level engine the
+  web UI already used, so media sync no longer depends on globals that
+  `main.py` never initialized (`fix/security-hardening`).
+- One database path everywhere: every entry point now derives it from the
+  env-driven `DB_PATH` (default `./news.db`, resolved against the repo root
+  like `PUBLISHED_DB`); the web UI previously opened a hardcoded — and
+  nonexistent — `db.sqlite` and showed an empty site. `MEDIA_DIR` resolves the
+  same way, so the engine and the web UI share one media folder regardless of
+  the working directory (`fix/security-hardening`).
+- Media download re-enabled: `sync_all` calls `sync_pending_media` again
+  instead of carrying it commented out, so the advertised "Media Download"
+  feature actually runs (`fix/security-hardening`).
+
+### Changed (continued)
+- Underscore-prefixed identifiers renamed to public names per project
+  convention: `_engine`/`_session_factory` → `engine`/`session_factory`
+  (`app/db.py`), `_db_initialized` → `db_initialized` (`web/app.py`)
+  (`fix/security-hardening`).

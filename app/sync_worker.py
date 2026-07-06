@@ -10,46 +10,41 @@ import logging
 from typing import Optional, Dict, Any
 
 import praw
+from sqlalchemy import select
 
 try:
     from . import db
     from . import reddit_client as rc
     from . import media_downloader as md
+    from .models import News, Subscription
 except ImportError:
     import db
     import reddit_client as rc
     import media_downloader as md
+    from models import News, Subscription
 
 logger = logging.getLogger(__name__)
 
 async def sync_thread(
     reddit: praw.Reddit,
     thread_id: str,
-    db_manager,
     limit: int = 100
 ) -> int:
     """Sync posts from a specific thread.
-    
+
     Args:
         reddit: Reddit API client
         thread_id: Thread/subreddit ID to sync
-        db_manager: Database manager instance
         limit: Maximum posts to fetch
-    
+
     Returns:
         Number of new posts processed
     """
     logger.info(f"Starting synchronization for thread {thread_id}")
     processed = 0
-    
+
     async for post in rc.get_thread_posts(reddit, thread_id, limit):
-        async with db_manager.get_session() as session:
-            from sqlalchemy import select
-            try:
-                from .models import News
-            except ImportError:
-                from models import News
-            
+        async with db.get_session() as session:
             # Check if news exists
             stmt = select(News).where(News.external_id == post['external_id'])
             result = await session.execute(stmt)
@@ -124,30 +119,22 @@ async def sync_pending_media(
 
 async def sync_all(
     reddit: praw.Reddit,
-    db_manager,
     media_dir: str = 'media',
     max_concurrent: int = 5,
     max_posts: Optional[int] = None
 ) -> None:
     """Synchronize all subscriptions.
-    
+
     Args:
         reddit: Reddit API client
-        db_manager: Database manager instance
         media_dir: Directory for storing media files
         max_concurrent: Maximum concurrent downloads
         max_posts: Maximum number of posts to process (None for unlimited)
     """
     total_processed = 0
-    
+
     # Get subscriptions
-    async with db_manager.get_session() as session:
-        from sqlalchemy import select
-        try:
-            from .models import Subscription
-        except ImportError:
-            from models import Subscription
-        
+    async with db.get_session() as session:
         stmt = select(Subscription)
         result = await session.execute(stmt)
         subscriptions = result.scalars().all()
@@ -161,12 +148,12 @@ async def sync_all(
         try:
             # Calculate remaining posts for this thread
             thread_limit = max_posts - total_processed if max_posts else 100
-            processed = await sync_thread(reddit, sub.thread_id, db_manager, limit=thread_limit)
+            processed = await sync_thread(reddit, sub.thread_id, limit=thread_limit)
             total_processed += processed
         except Exception as e:
             logger.error(f"Failed to sync {sub.thread_id}: {e}")
 
-    # Download media concurrently (simplified for now)
-    # await sync_pending_media(media_dir, max_concurrent)
-    
+    # Download media concurrently
+    await sync_pending_media(media_dir, max_concurrent)
+
     logger.info(f"Total sync completed: {total_processed} posts processed")

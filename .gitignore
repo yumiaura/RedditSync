@@ -41,3 +41,6 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+# Local-only docs (not published)
+CLAUDE.md
+ROADMAP.md

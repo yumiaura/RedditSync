@@ -10,6 +10,13 @@
   An invalid name fails at startup with a clear error instead of silently
   scheduling in the wrong timezone (`feat/publish-timezone`).
 
+### Fixed (deployment)
+- The container user's uid is now the `APP_UID` build argument (set it in
+  `.env` to `id -u`, default 1000) instead of hardcoded 1000. On hosts where
+  the user is not uid 1000 the publisher could send a Telegram post and then
+  crash with "attempt to write a readonly database" before recording it in
+  the dedup store — a repost risk (`fix/container-uid`).
+
 ### Changed
 - Default `MIN_SCORE` lowered from 1000 to 500 (`chore/min-score-500`). It is a
   per-post threshold (each published post needs at least this many upvotes), not

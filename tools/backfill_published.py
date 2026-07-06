@@ -2,6 +2,8 @@
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
 import published_store
@@ -19,6 +21,7 @@ ALREADY_SENT = [
 
 
 def main():
+    load_dotenv()
     connection = published_store.open_store()
     try:
         for record in ALREADY_SENT:

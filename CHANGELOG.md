@@ -21,3 +21,12 @@
   to run the scheduler unattended with a mounted dedup store.
 - New environment variables documented in `env.example`: `TELEGRAM_TOKEN`,
   `TELEGRAM_CHANNEL_ID`, `TREND_SUBREDDITS`, `PUBLISH_TIMES`, `PUBLISHED_DB`.
+- `.dockerignore` to keep the image small (excludes `.git`, caches, media,
+  local databases).
+
+### Changed
+- `README.md` rewritten: a banner at the top links the live Telegram channel
+  ([t.me/humorfromyumi](https://t.me/humorfromyumi)) and the trend publisher is
+  documented as a first-class feature alongside the sync engine.
+- `tools/backfill_published.py` now loads `.env` so it writes to the same
+  `PUBLISHED_DB` the publisher reads.

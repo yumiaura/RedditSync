@@ -1,0 +1,16 @@
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+venv/
+env/
+.env
+media/
+data/
+logs/
+*.sqlite
+*.sqlite3
+*.db
+news.sql
+README.md
+docs/

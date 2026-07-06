@@ -63,9 +63,11 @@ def extract_media_url(submission: praw.models.Submission) -> Optional[str]:
         elif hasattr(submission, 'url'):
             return submission.url
 
-    except Exception as e:
-        logger.error(f"Error extracting media URL from submission {submission.id}: {e}")
-    
+    except (AttributeError, KeyError, TypeError, ValueError):
+        # Submissions come in many shapes; a post without usable media
+        # metadata is expected and simply carries no media_url
+        logger.exception(f"Error extracting media URL from submission {submission.id}")
+
     return None
 
 def submission_to_dict(submission: praw.models.Submission, thread_id: str) -> Dict[str, Any]:
@@ -105,6 +107,6 @@ async def get_thread_posts(
     try:
         async for post in iter_submissions(reddit, thread_id, limit):
             yield post
-    except Exception as e:
-        logger.error(f"Error fetching posts from {thread_id}: {e}")
+    except Exception:
+        logger.exception(f"Error fetching posts from {thread_id}")
         raise

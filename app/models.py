@@ -8,13 +8,11 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    Column,
     Integer,
     String,
     Text,
     DateTime,
     ForeignKey,
-    UniqueConstraint,
 )
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship

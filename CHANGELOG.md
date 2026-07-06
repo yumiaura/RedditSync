@@ -57,3 +57,107 @@
   (`id="media-tile-<post>-<media>"`, reachable without OAuth) and upgraded to
   full-resolution `i.redd.it` URLs. `app/telegram_publisher.py` gains
   `send_media_group`; `app/trend_watcher.py` gains `gallery_image_urls`.
+
+### Security
+- Web UI: `/media/<path>` now resolves the requested file and refuses anything
+  outside `media/`, closing a path traversal where `../../etc/...` could be
+  read through the HTML/PDF/image fallbacks (`fix/security-hardening`).
+- Web UI: the Flask debug server (Werkzeug interactive debugger — remote code
+  execution if reachable) is gated behind `FLASK_DEBUG`, default off; README
+  documents running behind a real WSGI server (`fix/security-hardening`).
+- Media downloader: downloads are restricted to http(s) URLs on a Reddit/imgur
+  host allowlist, enforced via an httpx request hook on the initial URL, every
+  redirect hop (now capped at 5) and any URL scraped from `og:image` metadata —
+  closing the SSRF where a redirect or crafted HTML page could make the
+  downloader fetch arbitrary URLs (`fix/security-hardening`).
+- Media downloader: `max_size` is now enforced while streaming to disk, so a
+  response without a `Content-Length` header can no longer grow unbounded; an
+  aborted download removes its partial file (`fix/security-hardening`).
+
+### Fixed
+- Media downloader: the re-read path after sniffing an HTML preview called
+  `Response.aread()` with a size argument (not supported) and reassigned
+  `client.stream(...)` — a context manager, not a response — so it raised at
+  runtime; the preview is now read via `aiter_bytes` and the body re-requested
+  with a fresh stream (`fix/security-hardening`).
+- One database layer instead of two: the unused `DatabaseManager` class is
+  deleted and `main.py`/`sync_worker.py` now share the module-level engine the
+  web UI already used, so media sync no longer depends on globals that
+  `main.py` never initialized (`fix/security-hardening`).
+- One database path everywhere: every entry point now derives it from the
+  env-driven `DB_PATH` (default `./news.db`, resolved against the repo root
+  like `PUBLISHED_DB`); the web UI previously opened a hardcoded — and
+  nonexistent — `db.sqlite` and showed an empty site. `MEDIA_DIR` resolves the
+  same way, so the engine and the web UI share one media folder regardless of
+  the working directory (`fix/security-hardening`).
+- Media download re-enabled: `sync_all` calls `sync_pending_media` again
+  instead of carrying it commented out, so the advertised "Media Download"
+  feature actually runs (`fix/security-hardening`).
+
+### Changed (continued)
+- Underscore-prefixed identifiers renamed to public names per project
+  convention: `_engine`/`_session_factory` → `engine`/`session_factory`
+  (`app/db.py`), `_db_initialized` → `db_initialized` (`web/app.py`)
+  (`fix/security-hardening`).
+- Fresh databases are no longer seeded with a hardcoded `r/unixporn`
+  subscription; seeds come from the optional comma-separated
+  `DEFAULT_SUBSCRIPTIONS` env variable and default to none
+  (`fix/security-hardening`).
+- `requirements.txt`: every dependency pinned to the exact version the test
+  harnesses run against; the empty `# scheduler` stub removed
+  (`fix/security-hardening`).
+
+### Added (hygiene)
+- `LICENSE` file (MIT), matching the claim in the README
+  (`fix/security-hardening`).
+
+### Changed (code quality)
+- Error handling pass across `app/` and `web/`: `print()` calls replaced with
+  `logging`; broad `except Exception` blocks either narrowed to the expected
+  exceptions (`media_downloader.download_media`,
+  `reddit_client.extract_media_url`, the web image fallback) or switched to
+  `logger.exception` so tracebacks are preserved; the downloader retry now
+  re-raises the original error instead of a wrapped `RetryError`
+  (`fix/security-hardening`).
+- `web/app.py`: repeated in-function `from sqlalchemy import select` imports
+  hoisted to module top; unused imports removed repo-wide (ruff F401 clean)
+  (`fix/security-hardening`).
+- `trend_watcher` logs a warning whenever a rising feed, the rising HTML
+  scores or a gallery page parse to zero results, so an old.reddit markup
+  change is visible in the logs instead of silently publishing nothing
+  (`fix/security-hardening`).
+- `trend_scheduler` shuts down gracefully on SIGTERM (clean `docker stop`),
+  optionally writes a rotating log file (`LOG_FILE`, 5 MB × 3 backups) and
+  refreshes a heartbeat file (`HEARTBEAT_FILE`) every minute
+  (`fix/security-hardening`).
+- Dockerfile: the container now runs as a non-root `appuser` (uid 1000, so
+  the mounted `./data` volume stays writable) and gains a `HEALTHCHECK` that
+  flags the container unhealthy when the scheduler heartbeat goes stale
+  (`fix/security-hardening`).
+
+### Added (publisher)
+- Configurable listing chain with `top?t=week` fallback: the publisher walks
+  `TREND_LISTINGS` (default `rising,top:week`) per subreddit and publishes
+  from the first listing that yields an unposted image post above `MIN_SCORE`,
+  so a slow subreddit gets the week's best post instead of silence.
+  `trend_watcher` gains `listing_urls`/`fetch_listing`/`listing_scores`
+  (with `fetch_rising`/`rising_scores` kept as thin wrappers) and a shared
+  `get_with_backoff` helper; `publish_trends` gains `listing_chain` and
+  `select_candidate` (`fix/security-hardening`).
+
+### Added (tests & CI)
+- Offline pytest suite (32 tests, ~2 s): `trend_watcher` parsers against
+  saved Atom/HTML fixtures (including the preview→i.redd.it upgrade, gallery
+  enumeration and score scraping), `published_store` dedup and persistence,
+  `telegram_publisher.build_caption` layout/escaping, and
+  `publish_trends.pick_unsent` threshold/selection logic. An autouse fixture
+  blocks accidental real network calls (`fix/security-hardening`).
+- `requirements-dev.txt` (pytest, ruff) and `pytest.ini`
+  (`fix/security-hardening`).
+- GitHub Actions workflow running `ruff check` and `pytest` on every push to
+  `main` and every pull request (`fix/security-hardening`).
+- README gains a Tests section (`fix/security-hardening`).
+
+### Removed
+- `news.sql` — a raw-SQL dump left over from before the ORM migration,
+  referenced by nothing in the repo (`fix/security-hardening`).

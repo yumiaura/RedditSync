@@ -9,14 +9,13 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
 from zoneinfo import ZoneInfo
 
 # Add current directory to path for relative imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import Config
-from db import DatabaseManager
+import db
 from reddit_client import reddit_client
 import sync_worker as sync
 
@@ -30,27 +29,19 @@ logger = logging.getLogger(__name__)
 # Timezone configuration
 TIMEZONE = ZoneInfo("UTC")
 
-# Global database manager instance
-db_manager = None
-
 
 async def sync_news_task(max_posts: int = 5):
     """Async task to sync and collect news posts with comments and scores.
-    
+
     Args:
         max_posts: Maximum number of posts to process in this run
     """
     logger.info(f"Starting news sync task (max_posts={max_posts})")
-    
+
     try:
         # Load configuration
         config = Config()
-        
-        # Use global database manager (should already be initialized)
-        global db_manager
-        if not db_manager:
-            raise RuntimeError("Database manager not initialized")
-        
+
         # Run sync process within Reddit client context
         async with reddit_client(
             client_id=config.reddit_client_id,
@@ -60,15 +51,14 @@ async def sync_news_task(max_posts: int = 5):
         ) as reddit:
             await sync.sync_all(
                 reddit=reddit,
-                db_manager=db_manager,
                 media_dir=config.media_dir,
                 max_concurrent=config.max_concurrent_downloads,
                 max_posts=max_posts
             )
             logger.info(f"Successfully completed news sync task ({max_posts} posts)")
             
-    except Exception as e:
-        logger.error(f"News sync task failed: {e}")
+    except Exception:
+        logger.exception("News sync task failed")
         raise
 
 
@@ -79,8 +69,8 @@ def run_async_task(async_func, *args, **kwargs):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(async_func(*args, **kwargs))
-    except Exception as e:
-        logger.error(f"Async task execution failed: {e}")
+    except Exception:
+        logger.exception("Async task execution failed")
     finally:
         loop.close()
 
@@ -93,18 +83,16 @@ def main():
     logging.info("Initializing database...")
     try:
         config = Config()
-        global db_manager
-        db_manager = DatabaseManager(config.database_url)
-        
+
         # Run database initialization synchronously
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        loop.run_until_complete(db_manager.init_db())
+        loop.run_until_complete(db.init_db(config.db_path))
         loop.close()
-        
+
         logging.info("Database initialized successfully")
-    except Exception as e:
-        logging.error(f"Failed to initialize database: {e}")
+    except Exception:
+        logging.exception("Failed to initialize database")
         raise
     
     scheduler = BackgroundScheduler(timezone=TIMEZONE)
@@ -140,10 +128,9 @@ def main():
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
         logging.info("Scheduler shut down.")
-        
+
         # Clean up database connections
-        if db_manager:
-            asyncio.run(db_manager.close())
+        asyncio.run(db.close_db())
 
 
 if __name__ == '__main__':

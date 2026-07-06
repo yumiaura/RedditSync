@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+  <category term="ProgrammerHumor" label="r/ProgrammerHumor"/>
+  <updated>2026-07-05T09:00:00+00:00</updated>
+  <id>/r/ProgrammerHumor/rising.rss</id>
+  <title>rising posts on ProgrammerHumor</title>
+  <entry>
+    <author><name>/u/alice</name><uri>https://old.reddit.com/user/alice</uri></author>
+    <category term="ProgrammerHumor" label="r/ProgrammerHumor"/>
+    <content type="html">&lt;table&gt;&lt;tr&gt;&lt;td&gt;&lt;a href="https://old.reddit.com/r/ProgrammerHumor/comments/1abc23/tabs_spaces_the_eternal_war/"&gt;&lt;img src="https://b.thumbs.redditmedia.com/tiny.jpg" alt="Tabs &amp;amp; spaces: the eternal war"/&gt;&lt;/a&gt;&lt;/td&gt;&lt;td&gt;submitted by &lt;a href="https://old.reddit.com/user/alice"&gt;/u/alice&lt;/a&gt;&lt;br/&gt;&lt;span&gt;&lt;a href="https://i.redd.it/abcdef123.jpeg"&gt;[link]&lt;/a&gt;&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;</content>
+    <id>t3_1abc23</id>
+    <media:thumbnail url="https://b.thumbs.redditmedia.com/tiny.jpg"/>
+    <link href="https://old.reddit.com/r/ProgrammerHumor/comments/1abc23/tabs_spaces_the_eternal_war/"/>
+    <updated>2026-07-05T08:41:00+00:00</updated>
+    <title>Tabs &amp; spaces: the eternal war</title>
+  </entry>
+  <entry>
+    <author><name>/u/bob</name><uri>https://old.reddit.com/user/bob</uri></author>
+    <category term="ProgrammerHumor" label="r/ProgrammerHumor"/>
+    <content type="html">&lt;table&gt;&lt;tr&gt;&lt;td&gt;&lt;a href="https://old.reddit.com/r/ProgrammerHumor/comments/1def45/it_works_on_my_machine/"&gt;&lt;img src="https://preview.redd.it/def456gh.png?width=640&amp;amp;crop=smart&amp;amp;auto=webp&amp;amp;s=deadbeef" alt="It works on my machine"/&gt;&lt;/a&gt;&lt;/td&gt;&lt;td&gt;submitted by &lt;a href="https://old.reddit.com/user/bob"&gt;/u/bob&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;</content>
+    <id>t3_1def45</id>
+    <media:thumbnail url="https://preview.redd.it/def456gh.png?width=140&amp;height=140&amp;crop=140:140,smart&amp;auto=webp&amp;s=cafebabe"/>
+    <link href="https://old.reddit.com/r/ProgrammerHumor/comments/1def45/it_works_on_my_machine/"/>
+    <updated>2026-07-05T08:12:00+00:00</updated>
+    <title>It works on my machine</title>
+  </entry>
+  <entry>
+    <author><name>/u/carol</name><uri>https://old.reddit.com/user/carol</uri></author>
+    <category term="ProgrammerHumor" label="r/ProgrammerHumor"/>
+    <content type="html">&lt;table&gt;&lt;tr&gt;&lt;td&gt;&lt;a href="https://www.reddit.com/gallery/1ghi78"&gt;My debugging journey, a saga&lt;/a&gt;&lt;/td&gt;&lt;td&gt;submitted by &lt;a href="https://old.reddit.com/user/carol"&gt;/u/carol&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;</content>
+    <id>t3_1ghi78</id>
+    <media:thumbnail url="https://preview.redd.it/ghijk890.jpg?width=140&amp;height=140&amp;crop=140:140,smart&amp;auto=webp&amp;s=0123abcd"/>
+    <link href="https://old.reddit.com/r/ProgrammerHumor/comments/1ghi78/my_debugging_journey_a_saga/"/>
+    <updated>2026-07-05T07:55:00+00:00</updated>
+    <title>My debugging journey, a saga</title>
+  </entry>
+  <entry>
+    <author><name>/u/dave</name><uri>https://old.reddit.com/user/dave</uri></author>
+    <category term="ProgrammerHumor" label="r/ProgrammerHumor"/>
+    <content type="html">&lt;div class="md"&gt;&lt;p&gt;Just a text post, nothing to see here.&lt;/p&gt;&lt;/div&gt; submitted by &lt;a href="https://old.reddit.com/user/dave"&gt;/u/dave&lt;/a&gt;</content>
+    <id>t3_1jkl90</id>
+    <link href="https://old.reddit.com/r/ProgrammerHumor/comments/1jkl90/text_only_confession/"/>
+    <updated>2026-07-05T07:30:00+00:00</updated>
+    <title>Text only confession</title>
+  </entry>
+</feed>

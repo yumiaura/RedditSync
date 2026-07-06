@@ -5,13 +5,14 @@ Uses SQLAlchemy ORM for database operations and supports various media types.
 """
 import asyncio
 import io
-import mimetypes
+import logging
 import os
 from pathlib import Path
 import sys
 
 from flask import Flask, render_template, send_from_directory, url_for, redirect, send_file, abort
 from PIL import Image, ImageDraw, ImageFont
+from sqlalchemy import select
 import magic
 import fitz  # PyMuPDF for PDF processing
 
@@ -19,24 +20,28 @@ import fitz  # PyMuPDF for PDF processing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
 
 from app import db
-from app.models import News, Media, Subscription
+from app.config import database_path, media_dir_path
+from app.models import News, Subscription
+
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Configuration
-MEDIA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'media'))
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'db.sqlite'))
+# Configuration — same env-driven paths as the sync engine (DB_PATH,
+# MEDIA_DIR), so both parts always open the same files
+MEDIA_DIR = str(media_dir_path())
+DB_PATH = str(database_path())
 
 # Global variable to track if database is initialized
-_db_initialized = False
+db_initialized = False
 
 
 async def ensure_db_initialized():
     """Ensure database is initialized for web interface."""
-    global _db_initialized
-    if not _db_initialized:
+    global db_initialized
+    if not db_initialized:
         await db.init_db(DB_PATH)
-        _db_initialized = True
+        db_initialized = True
 
 
 def run_async(coro):
@@ -58,7 +63,6 @@ def index():
         await ensure_db_initialized()
         # Get all news items ordered by newest first
         async with db.get_session() as session:
-            from sqlalchemy import select
             stmt = select(News).order_by(News.added_at.desc()).limit(100)
             result = await session.execute(stmt)
             news_items = result.scalars().all()
@@ -86,7 +90,6 @@ def news_detail(news_id):
     async def get_news_detail():
         await ensure_db_initialized()
         async with db.get_session() as session:
-            from sqlalchemy import select
             stmt = select(News).where(News.id == news_id)
             result = await session.execute(stmt)
             item = result.scalar_one_or_none()
@@ -124,7 +127,6 @@ def subscriptions():
     async def get_subscriptions_data():
         await ensure_db_initialized()
         async with db.get_session() as session:
-            from sqlalchemy import select
             stmt = select(Subscription).order_by(Subscription.added_at.desc())
             result = await session.execute(stmt)
             subs = result.scalars().all()
@@ -147,7 +149,12 @@ def subscriptions():
 def media_file(filename):
     """Serve media files with appropriate processing."""
     file_path = os.path.join(MEDIA_DIR, filename)
-    
+
+    # <path:> accepts "../" sequences and the fallbacks below open the raw
+    # path, so refuse anything that resolves outside MEDIA_DIR.
+    if not Path(file_path).resolve().is_relative_to(Path(MEDIA_DIR).resolve()):
+        abort(404)
+
     if not os.path.exists(file_path):
         abort(404)
     
@@ -186,8 +193,8 @@ def media_file(filename):
                 img_data.save(buf, format='PNG')
                 buf.seek(0)
                 return send_file(buf, mimetype='image/png')
-        except Exception as e:
-            print(f"PDF conversion error: {e}")
+        except Exception:
+            logger.exception("PDF preview failed for %s", file_path)
     
     try:
         # Try to open as image
@@ -196,7 +203,7 @@ def media_file(filename):
             img.save(buf, format='PNG')
             buf.seek(0)
             return send_file(buf, mimetype='image/png')
-    except Exception:
+    except (OSError, ValueError):
         # If nothing worked, generate preview with file information
         img = Image.new('RGB', (400, 200), color=(200, 200, 200))
         d = ImageDraw.Draw(img)
@@ -218,12 +225,14 @@ def go_back():
 @app.teardown_appcontext
 def close_db_connections(error):
     """Clean up database connections."""
-    if _db_initialized:
+    if db_initialized:
         try:
             run_async(db.close_db())
-        except Exception as e:
-            print(f"Error closing database connections: {e}")
+        except Exception:
+            logger.exception("Error closing database connections")
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # The Werkzeug debugger allows remote code execution if the port is
+    # reachable, so debug stays off unless FLASK_DEBUG opts in explicitly.
+    app.run(debug=os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes'))

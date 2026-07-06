@@ -5,6 +5,7 @@ All functions work with async sessions and provide high-level database
 operations for the Reddit Sync application.
 """
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -18,15 +19,17 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.exc import IntegrityError
 
 try:
+    from .config import database_path
     from .models import Base, Subscription, News, Media
 except ImportError:
+    from config import database_path
     from models import Base, Subscription, News, Media
 
 logger = logging.getLogger(__name__)
 
-# Global engine and session factory
-_engine: Optional[AsyncEngine] = None
-_session_factory: Optional[async_sessionmaker[AsyncSession]] = None
+# Module-level engine and session factory shared by every entry point
+engine: Optional[AsyncEngine] = None
+session_factory: Optional[async_sessionmaker[AsyncSession]] = None
 
 
 def get_database_url(db_path: str) -> str:
@@ -35,101 +38,56 @@ def get_database_url(db_path: str) -> str:
     return f"sqlite+aiosqlite:///{db_file}"
 
 
-class DatabaseManager:
-    """Database manager for SQLAlchemy operations."""
-    
-    def __init__(self, database_url: str):
-        """Initialize database manager with database URL."""
-        self.database_url = database_url
-        self._engine: Optional[AsyncEngine] = None
-        self._session_factory: Optional[async_sessionmaker[AsyncSession]] = None
-    
-    async def init_db(self) -> None:
-        """Initialize database with schema and default data."""
-        self._engine = create_async_engine(self.database_url, echo=False)
-        self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False)
-        
-        # Create all tables
-        async with self._engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        
-        # Add default subscription
-        async with self.get_session() as session:
-            # Check if default subscription exists
-            stmt = select(Subscription).where(Subscription.thread_id == "unixporn")
-            result = await session.execute(stmt)
-            existing = result.scalar_one_or_none()
-            
-            if not existing:
-                default_sub = Subscription(
-                    thread_id="unixporn",
-                    title="r/unixporn - Unix Customization"
-                )
-                session.add(default_sub)
-                await session.commit()
-        
-        logger.info("Database initialized successfully")
-    
-    def get_session(self) -> AsyncSession:
-        """Get database session."""
-        if self._session_factory is None:
-            raise RuntimeError("Database not initialized. Call init_db() first.")
-        return self._session_factory()
-    
-    async def close(self) -> None:
-        """Close database connections."""
-        if self._engine:
-            await self._engine.dispose()
-            self._engine = None
-
-
-async def init_db(db_path: str = 'db.sqlite') -> None:
+async def init_db(db_path: Optional[str] = None) -> None:
     """Initialize database with schema and default data.
-    
+
     Args:
         db_path: Path to SQLite database file. Creates if not exists.
+            Defaults to the env-driven DB_PATH resolved against the repo
+            root, so every entry point opens the same database.
     """
-    global _engine, _session_factory
-    
+    global engine, session_factory
+
+    if db_path is None:
+        db_path = str(database_path())
+
     database_url = get_database_url(db_path)
-    _engine = create_async_engine(database_url, echo=False)
-    _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
-    
+    engine = create_async_engine(database_url, echo=False)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
     # Create all tables
-    async with _engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    # Add default subscription
-    async with get_session() as session:
-        # Check if default subscription exists
-        stmt = select(Subscription).where(Subscription.thread_id == "unixporn")
-        result = await session.execute(stmt)
-        existing = result.scalar_one_or_none()
-        
-        if not existing:
-            default_sub = Subscription(
-                thread_id="unixporn",
-                title="r/unixporn - Unix Customization"
-            )
-            session.add(default_sub)
+    # Seed subscriptions from DEFAULT_SUBSCRIPTIONS (comma-separated
+    # subreddit names, optional) — empty by default, no hardcoded seed
+    seeds = [item.strip() for item in
+             os.getenv('DEFAULT_SUBSCRIPTIONS', '').split(',') if item.strip()]
+    if seeds:
+        async with get_session() as session:
+            for thread_id in seeds:
+                stmt = select(Subscription).where(Subscription.thread_id == thread_id)
+                result = await session.execute(stmt)
+                if result.scalar_one_or_none() is None:
+                    session.add(Subscription(thread_id=thread_id, title=f"r/{thread_id}"))
             await session.commit()
-    
+
     logger.info("Database initialized successfully")
 
 
 def get_session() -> AsyncSession:
     """Get database session."""
-    if _session_factory is None:
+    if session_factory is None:
         raise RuntimeError("Database not initialized. Call init_db() first.")
-    return _session_factory()
+    return session_factory()
 
 
 async def close_db() -> None:
     """Close database connections."""
-    global _engine
-    if _engine:
-        await _engine.dispose()
-        _engine = None
+    global engine
+    if engine:
+        await engine.dispose()
+        engine = None
 
 
 async def get_subscriptions() -> List[Dict[str, Any]]:

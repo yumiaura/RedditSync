@@ -21,6 +21,7 @@ import trend_watcher
 logger = logging.getLogger("trend_publisher")
 DEFAULT_SUBREDDITS = "ProgrammerHumor"
 DEFAULT_MIN_SCORE = 500
+DEFAULT_LISTINGS = "rising,top:week"
 RATE_LIMIT_PAUSE = 30
 
 
@@ -33,6 +34,16 @@ def min_score():
     return int(os.getenv("MIN_SCORE", DEFAULT_MIN_SCORE))
 
 
+def listing_chain():
+    """Listings to try in order until one yields a publishable post.
+
+    Default: rising first, then the week's top — so a slow subreddit whose
+    rising never clears MIN_SCORE still gets a post.
+    """
+    raw = os.getenv("TREND_LISTINGS", DEFAULT_LISTINGS)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
 def pick_unsent(connection, candidates, scores, threshold):
     for candidate in candidates:
         if not candidate["reddit_id"] or not candidate["image_url"]:
@@ -43,6 +54,31 @@ def pick_unsent(connection, candidates, scores, threshold):
             continue
         return candidate
     return None
+
+
+def select_candidate(connection, subreddit, threshold):
+    """Walk the listing chain until one yields an unsent post.
+
+    Returns (candidate, scores); (None, {}) when every listing comes up empty.
+    """
+    for position, listing in enumerate(listing_chain()):
+        if position:
+            time.sleep(RATE_LIMIT_PAUSE)  # respect Reddit's rate limit
+        try:
+            candidates = trend_watcher.fetch_listing(subreddit, listing)
+            scores = trend_watcher.listing_scores(subreddit, listing)
+        except Exception as error:
+            logger.error("r/%s: could not fetch %s: %s", subreddit, listing, error)
+            continue
+        choice = pick_unsent(connection, candidates, scores, threshold)
+        if choice:
+            if position:
+                logger.info("r/%s: picked from fallback listing '%s'",
+                            subreddit, listing)
+            return choice, scores
+        logger.info("r/%s: %s has no unposted image post with score >= %d",
+                    subreddit, listing, threshold)
+    return None, {}
 
 
 def publish_once(dry_run=False):
@@ -59,16 +95,8 @@ def publish_once(dry_run=False):
             if position:
                 time.sleep(RATE_LIMIT_PAUSE)  # respect Reddit's RSS rate limit
             threshold = min_score()
-            try:
-                candidates = trend_watcher.fetch_rising(subreddit)
-                scores = trend_watcher.rising_scores(subreddit)
-            except Exception as error:
-                logger.error("r/%s: could not fetch rising: %s", subreddit, error)
-                continue
-            choice = pick_unsent(connection, candidates, scores, threshold)
+            choice, scores = select_candidate(connection, subreddit, threshold)
             if not choice:
-                logger.info("r/%s: no unposted image post with score >= %d",
-                            subreddit, threshold)
                 continue
             score = scores.get(choice["reddit_id"], 0)
             caption = telegram_publisher.build_caption(

@@ -157,6 +157,19 @@ RedditSync/
 └── CHANGELOG.md
 ```
 
+## 🧪 Tests
+
+The suite covers the trend-publisher: feed/HTML parsers against saved
+fixtures, the dedup store, caption building and post selection. It runs
+offline in a couple of seconds:
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Linting and tests run in CI on every push and pull request.
+
 ## 🛡️ Error handling & resilience
 
 - Rising feeds are rate-limited by Reddit; the watcher backs off and retries on

@@ -135,6 +135,19 @@
   flags the container unhealthy when the scheduler heartbeat goes stale
   (`fix/security-hardening`).
 
+### Added (tests & CI)
+- Offline pytest suite (32 tests, ~2 s): `trend_watcher` parsers against
+  saved Atom/HTML fixtures (including the preview→i.redd.it upgrade, gallery
+  enumeration and score scraping), `published_store` dedup and persistence,
+  `telegram_publisher.build_caption` layout/escaping, and
+  `publish_trends.pick_unsent` threshold/selection logic. An autouse fixture
+  blocks accidental real network calls (`fix/security-hardening`).
+- `requirements-dev.txt` (pytest, ruff) and `pytest.ini`
+  (`fix/security-hardening`).
+- GitHub Actions workflow running `ruff check` and `pytest` on every push to
+  `main` and every pull request (`fix/security-hardening`).
+- README gains a Tests section (`fix/security-hardening`).
+
 ### Removed
 - `news.sql` — a raw-SQL dump left over from before the ORM migration,
   referenced by nothing in the repo (`fix/security-hardening`).

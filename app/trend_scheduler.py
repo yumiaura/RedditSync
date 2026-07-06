@@ -1,7 +1,8 @@
 """Run the trend publisher on a fixed daily schedule (default twice a day).
 
-PUBLISH_TIMES is a comma-separated list of HH:MM slots in UTC. Each slot
-fires publish_once(), which posts one meme per tracked subreddit.
+PUBLISH_TIMES is a comma-separated list of HH:MM slots interpreted in the
+PUBLISH_TZ timezone (IANA name, default UTC). Each slot fires
+publish_once(), which posts one meme per tracked subreddit.
 """
 import logging
 import os
@@ -9,6 +10,7 @@ import signal
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -21,7 +23,17 @@ import publish_trends
 
 logger = logging.getLogger("trend_scheduler")
 DEFAULT_TIMES = "09:00,21:00"
+DEFAULT_TZ = "UTC"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+
+def publish_timezone():
+    """IANA timezone the PUBLISH_TIMES slots are interpreted in.
+
+    ZoneInfo validates the name, so a typo fails at startup with a clear
+    error instead of silently scheduling in the wrong timezone.
+    """
+    return ZoneInfo(os.getenv("PUBLISH_TZ", DEFAULT_TZ).strip() or DEFAULT_TZ)
 
 
 def setup_logging():
@@ -52,16 +64,18 @@ def main():
     setup_logging()
     load_dotenv()
     times = os.getenv("PUBLISH_TIMES", DEFAULT_TIMES)
-    scheduler = BlockingScheduler(timezone="UTC")
+    timezone = publish_timezone()
+    scheduler = BlockingScheduler(timezone=timezone)
     for slot in [item.strip() for item in times.split(",") if item.strip()]:
         hour, sep, minute = slot.partition(":")
         scheduler.add_job(
             scheduled_run,
-            trigger=CronTrigger(hour=int(hour), minute=int(minute or 0)),
+            trigger=CronTrigger(hour=int(hour), minute=int(minute or 0),
+                                timezone=timezone),
             id=f"publish_{slot}",
             replace_existing=True,
         )
-        logger.info("scheduled daily publish at %s UTC", slot)
+        logger.info("scheduled daily publish at %s %s", slot, timezone)
 
     heartbeat_file = os.getenv("HEARTBEAT_FILE", "").strip()
     if heartbeat_file:

@@ -5,6 +5,10 @@
 ### Added
 - `.github/FUNDING.yml` with GitHub Sponsors, Buy Me a Coffee and Patreon links
   (`chore/funding`).
+- Configurable publish timezone: `PUBLISH_TIMES` slots are now interpreted in
+  the `PUBLISH_TZ` IANA timezone (default `UTC`, e.g. `Europe/Lisbon`).
+  An invalid name fails at startup with a clear error instead of silently
+  scheduling in the wrong timezone (`feat/publish-timezone`).
 
 ### Changed
 - Default `MIN_SCORE` lowered from 1000 to 500 (`chore/min-score-500`). It is a

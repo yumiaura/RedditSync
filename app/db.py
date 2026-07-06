@@ -5,6 +5,7 @@ All functions work with async sessions and provide high-level database
 operations for the Reddit Sync application.
 """
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -58,21 +59,19 @@ async def init_db(db_path: Optional[str] = None) -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    # Add default subscription
-    async with get_session() as session:
-        # Check if default subscription exists
-        stmt = select(Subscription).where(Subscription.thread_id == "unixporn")
-        result = await session.execute(stmt)
-        existing = result.scalar_one_or_none()
-        
-        if not existing:
-            default_sub = Subscription(
-                thread_id="unixporn",
-                title="r/unixporn - Unix Customization"
-            )
-            session.add(default_sub)
+    # Seed subscriptions from DEFAULT_SUBSCRIPTIONS (comma-separated
+    # subreddit names, optional) — empty by default, no hardcoded seed
+    seeds = [item.strip() for item in
+             os.getenv('DEFAULT_SUBSCRIPTIONS', '').split(',') if item.strip()]
+    if seeds:
+        async with get_session() as session:
+            for thread_id in seeds:
+                stmt = select(Subscription).where(Subscription.thread_id == thread_id)
+                result = await session.execute(stmt)
+                if result.scalar_one_or_none() is None:
+                    session.add(Subscription(thread_id=thread_id, title=f"r/{thread_id}"))
             await session.commit()
-    
+
     logger.info("Database initialized successfully")
 
 

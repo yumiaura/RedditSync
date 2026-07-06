@@ -99,3 +99,18 @@
   convention: `_engine`/`_session_factory` → `engine`/`session_factory`
   (`app/db.py`), `_db_initialized` → `db_initialized` (`web/app.py`)
   (`fix/security-hardening`).
+- Fresh databases are no longer seeded with a hardcoded `r/unixporn`
+  subscription; seeds come from the optional comma-separated
+  `DEFAULT_SUBSCRIPTIONS` env variable and default to none
+  (`fix/security-hardening`).
+- `requirements.txt`: every dependency pinned to the exact version the test
+  harnesses run against; the empty `# scheduler` stub removed
+  (`fix/security-hardening`).
+
+### Added (hygiene)
+- `LICENSE` file (MIT), matching the claim in the README
+  (`fix/security-hardening`).
+
+### Removed
+- `news.sql` — a raw-SQL dump left over from before the ORM migration,
+  referenced by nothing in the repo (`fix/security-hardening`).

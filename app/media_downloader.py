@@ -12,6 +12,7 @@ import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict, Any, Optional, AsyncGenerator
+from urllib.parse import urlparse
 
 import aiofiles
 import httpx
@@ -24,10 +25,40 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Hosts media may be fetched from. Enforced on the initial URL, on every
+# redirect hop and on URLs scraped from og:image/twitter:image metadata.
+ALLOWED_MEDIA_HOSTS = (
+    'redd.it',
+    'reddit.com',
+    'redditmedia.com',
+    'redditstatic.com',
+    'imgur.com',
+)
+
+MAX_REDIRECTS = 5
+
+def allowed_media_url(url: str) -> bool:
+    """Return True when url is http(s) and points at an allowlisted host."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        return False
+    host = (parsed.hostname or '').lower()
+    return any(host == allowed or host.endswith('.' + allowed)
+               for allowed in ALLOWED_MEDIA_HOSTS)
+
+async def reject_disallowed_url(request: httpx.Request) -> None:
+    """httpx request hook: runs for every request including redirect hops."""
+    if not allowed_media_url(str(request.url)):
+        raise ValueError(f"Blocked URL outside the media host allowlist: {request.url}")
+
 @asynccontextmanager
 async def http_client():
     """Context manager for HTTP client."""
-    client = httpx.AsyncClient(follow_redirects=True)
+    client = httpx.AsyncClient(
+        follow_redirects=True,
+        max_redirects=MAX_REDIRECTS,
+        event_hooks={'request': [reject_disallowed_url]},
+    )
     try:
         yield client
     finally:
@@ -39,6 +70,26 @@ def ensure_media_dir(media_dir: str) -> Path:
     path.mkdir(exist_ok=True)
     return path
 
+async def write_stream_to_file(
+    response: httpx.Response,
+    file_path: Path,
+    max_size: int
+) -> None:
+    """Stream a response body to disk, aborting once it exceeds max_size."""
+    bytes_written = 0
+    try:
+        async with aiofiles.open(file_path, 'wb') as f:
+            async for chunk in response.aiter_bytes():
+                bytes_written += len(chunk)
+                if bytes_written > max_size:
+                    raise ValueError(
+                        f"File too large: exceeded {max_size} bytes while downloading"
+                    )
+                await f.write(chunk)
+    except BaseException:
+        file_path.unlink(missing_ok=True)
+        raise
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def download_file(
     client: httpx.AsyncClient,
@@ -47,49 +98,61 @@ async def download_file(
     max_size: int
 ) -> Dict[str, Any]:
     """Download a single file with retry on failure."""
+    if not allowed_media_url(url):
+        raise ValueError(f"Blocked URL outside the media host allowlist: {url}")
+
+    reopen_for_body = False
     async with client.stream('GET', url) as response:
         response.raise_for_status()
-        
+
         content_type = response.headers.get('content-type', '')
         size = int(response.headers.get('content-length', 0))
-        
+
         if size > max_size:
             raise ValueError(f"File too large: {size} bytes")
-        
+
         # Check if this is an HTML page with loader
         if content_type.startswith('text/html'):
             # Check first bytes to determine content type
-            content_preview = await response.aread(1024)
+            content_preview = bytearray()
+            async for chunk in response.aiter_bytes():
+                content_preview.extend(chunk)
+                if len(content_preview) >= 1024:
+                    break
+            content_preview = bytes(content_preview[:1024])
             if b'<!DOCTYPE html>' in content_preview or b'<html' in content_preview:
                 # If this is a loading page, try to get direct link from metadata
                 if b'og:image' in content_preview or b'twitter:image' in content_preview:
                     # Extract direct media link
                     direct_url = re.search(b'content="([^"]+)"', content_preview)
                     if direct_url:
-                        # Recursively download direct link
+                        # Recursively download direct link; the allowlist
+                        # check at the top vets the scraped URL too
                         decoded_url = direct_url.group(1).decode()
                         return await download_file(client, decoded_url, media_dir, max_size)
                 raise ValueError("Received HTML loading page instead of media content")
-        
+            # text/html content-type without HTML markers: still worth
+            # saving, but the stream is partially consumed — re-request below
+            reopen_for_body = True
+
         extension = extract_file_extension(url, content_type)
         uid_filename = f"{generate_uid()}.{extension}"
         file_path = media_dir / uid_filename
-        
-        # Reset position if we read content for validation
-        if response.num_bytes_downloaded:
-            await response.aclose()
-            response = await client.stream('GET', url)
-        
-        async with aiofiles.open(file_path, 'wb') as f:
-            async for chunk in response.aiter_bytes():
-                await f.write(chunk)
-        
-        return {
-            'uid_filename': uid_filename,
-            'original_url': url,
-            'content_type': content_type,
-            'size_bytes': os.path.getsize(file_path)
-        }
+
+        if not reopen_for_body:
+            await write_stream_to_file(response, file_path, max_size)
+
+    if reopen_for_body:
+        async with client.stream('GET', url) as response:
+            response.raise_for_status()
+            await write_stream_to_file(response, file_path, max_size)
+
+    return {
+        'uid_filename': uid_filename,
+        'original_url': url,
+        'content_type': content_type,
+        'size_bytes': os.path.getsize(file_path)
+    }
 
 async def download_media(
     url: str,

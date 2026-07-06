@@ -65,3 +65,18 @@
 - Web UI: the Flask debug server (Werkzeug interactive debugger — remote code
   execution if reachable) is gated behind `FLASK_DEBUG`, default off; README
   documents running behind a real WSGI server (`fix/security-hardening`).
+- Media downloader: downloads are restricted to http(s) URLs on a Reddit/imgur
+  host allowlist, enforced via an httpx request hook on the initial URL, every
+  redirect hop (now capped at 5) and any URL scraped from `og:image` metadata —
+  closing the SSRF where a redirect or crafted HTML page could make the
+  downloader fetch arbitrary URLs (`fix/security-hardening`).
+- Media downloader: `max_size` is now enforced while streaming to disk, so a
+  response without a `Content-Length` header can no longer grow unbounded; an
+  aborted download removes its partial file (`fix/security-hardening`).
+
+### Fixed
+- Media downloader: the re-read path after sniffing an HTML preview called
+  `Response.aread()` with a size argument (not supported) and reassigned
+  `client.stream(...)` — a context manager, not a response — so it raised at
+  runtime; the preview is now read via `aiter_bytes` and the body re-requested
+  with a fresh stream (`fix/security-hardening`).

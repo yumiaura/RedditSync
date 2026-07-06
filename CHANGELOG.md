@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- `ROADMAP.md` capturing a code-review backlog: security, correctness,
+  public-repo hygiene, code quality, tests/CI (`chore/roadmap`).
 - `.github/FUNDING.yml` with GitHub Sponsors, Buy Me a Coffee and Patreon links
   (`chore/funding`).
 

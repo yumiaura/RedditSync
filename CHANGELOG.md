@@ -30,3 +30,7 @@
   documented as a first-class feature alongside the sync engine.
 - `tools/backfill_published.py` now loads `.env` so it writes to the same
   `PUBLISHED_DB` the publisher reads.
+- `trend_watcher.extract_image` now returns full-resolution images: it upgrades
+  140px `preview.redd.it` thumbnails (e.g. gallery posts) to the original
+  `i.redd.it` file and skips posts with no full-size image, so the channel never
+  shows a tiny thumbnail.

@@ -15,7 +15,8 @@ ATOM = "{http://www.w3.org/2005/Atom}"
 MEDIA = "{http://search.yahoo.com/mrss/}"
 USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64; rv:128.0) "
               "Gecko/20100101 Firefox/128.0")
-IMAGE_RE = re.compile(r'href="(https://i\.redd\.it/[^"]+)"')
+IREDD_RE = re.compile(r"https://i\.redd\.it/[A-Za-z0-9]+\.[A-Za-z0-9]+")
+PREVIEW_RE = re.compile(r"https://preview\.redd\.it/([A-Za-z0-9]+\.[A-Za-z0-9]+)")
 COMMENTS_RE = re.compile(r"/comments/([a-z0-9]+)/")
 
 
@@ -59,10 +60,22 @@ def parse_feed(subreddit, raw_xml):
 
 
 def extract_image(entry, content):
-    match = IMAGE_RE.search(html.unescape(content))
-    if match:
-        return match.group(1)
+    """Return a full-resolution image URL, never a tiny preview thumbnail.
+
+    Reddit's RSS often carries only a 140px preview.redd.it thumbnail (e.g. for
+    gallery posts). preview.redd.it/<id>.<ext> maps to the original at
+    i.redd.it/<id>.<ext>, so we upgrade previews instead of posting a thumbnail.
+    """
+    text = html.unescape(content)
+    direct = IREDD_RE.search(text)
+    if direct:
+        return direct.group(0)
+    preview = PREVIEW_RE.search(text)
+    if preview:
+        return f"https://i.redd.it/{preview.group(1)}"
     thumbnail = entry.find(f"{MEDIA}thumbnail")
     if thumbnail is not None:
-        return thumbnail.get("url")
+        preview = PREVIEW_RE.search(thumbnail.get("url", ""))
+        if preview:
+            return f"https://i.redd.it/{preview.group(1)}"
     return None

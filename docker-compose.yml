@@ -1,0 +1,11 @@
+services:
+  trend-publisher:
+    build: .
+    env_file:
+      - .env
+    environment:
+      # Keep the dedup store on a mounted volume so it survives restarts.
+      PUBLISHED_DB: /app/data/published.sqlite
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

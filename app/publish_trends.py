@@ -63,12 +63,23 @@ def publish_once(dry_run=False):
                 continue
             caption = telegram_publisher.build_caption(
                 choice["title"], subreddit, choice["permalink"])
+            images = [choice["image_url"]]
+            if choice.get("is_gallery"):
+                gallery = trend_watcher.gallery_image_urls(
+                    choice["permalink"], choice["reddit_id"])
+                if len(gallery) > 1:
+                    images = gallery
             if dry_run:
-                logger.info("r/%s: would publish '%s' (%s)",
-                            subreddit, choice["title"], choice["reddit_id"])
+                logger.info("r/%s: would publish '%s' (%s), %d image(s)",
+                            subreddit, choice["title"], choice["reddit_id"],
+                            len(images))
                 continue
-            result = telegram_publisher.send_photo(
-                token, chat_id, choice["image_url"], caption)
+            if len(images) > 1:
+                result = telegram_publisher.send_media_group(
+                    token, chat_id, images, caption)
+            else:
+                result = telegram_publisher.send_photo(
+                    token, chat_id, images[0], caption)
             message_id = result["message_id"]
             published_store.mark_published(
                 connection, choice["reddit_id"], subreddit,

@@ -34,3 +34,13 @@
   140px `preview.redd.it` thumbnails (e.g. gallery posts) to the original
   `i.redd.it` file and skips posts with no full-size image, so the channel never
   shows a tiny thumbnail.
+- `PUBLISHED_DB` relative paths resolve against the repo root, so the publisher,
+  scheduler and tools share one dedup store regardless of working directory.
+- Default `TREND_SUBREDDITS` in `env.example` now includes `linuxmemes`.
+
+### Added (continued)
+- Gallery posts are published as a single Telegram **album** (`sendMediaGroup`)
+  instead of one image. Gallery images are enumerated from the old.reddit HTML
+  (`id="media-tile-<post>-<media>"`, reachable without OAuth) and upgraded to
+  full-resolution `i.redd.it` URLs. `app/telegram_publisher.py` gains
+  `send_media_group`; `app/trend_watcher.py` gains `gallery_image_urls`.

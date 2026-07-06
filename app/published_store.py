@@ -4,11 +4,17 @@ import sqlite3
 import time
 from pathlib import Path
 
-DEFAULT_DB = "published.sqlite"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_DB = "data/published.sqlite"
 
 
 def store_path():
-    return Path(os.getenv("PUBLISHED_DB", DEFAULT_DB)).resolve()
+    # A relative PUBLISHED_DB resolves against the repo root, not the current
+    # working directory, so every entry point shares one dedup store.
+    path = Path(os.getenv("PUBLISHED_DB", DEFAULT_DB))
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    return path.resolve()
 
 
 def open_store():

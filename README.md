@@ -45,7 +45,7 @@ Add these to your `.env` (see `env.example`):
 | `TELEGRAM_TOKEN` | Bot token from @BotFather | *Required* |
 | `TELEGRAM_CHANNEL_ID` | Target channel id (e.g. `-1001234567890`) | *Required* |
 | `TREND_SUBREDDITS` | Comma-separated subreddits to watch | `ProgrammerHumor` |
-| `MIN_SCORE` | Only publish posts with at least this score | `1000` |
+| `MIN_SCORE` | Minimum score (upvotes) per published post | `500` |
 | `PUBLISH_TIMES` | Comma-separated `HH:MM` slots in UTC | `09:00,21:00` |
 | `PUBLISHED_DB` | Path to the dedup SQLite store | `./data/published.sqlite` |
 

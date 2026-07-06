@@ -5,6 +5,12 @@
 ### Added
 - `.github/FUNDING.yml` with GitHub Sponsors, Buy Me a Coffee and Patreon links
   (`chore/funding`).
+
+### Changed
+- Default `MIN_SCORE` lowered from 1000 to 500 (`chore/min-score-500`). It is a
+  per-post threshold (each published post needs at least this many upvotes), not
+  a total across posts; rising posts rarely reach 1000 so 1000 left channels
+  like r/funnyAnimals with nothing to publish.
 - Trend auto-publisher (`feat/trend-publisher`): fetches rising posts for each
   subreddit in `TREND_SUBREDDITS` via public Atom feeds (no OAuth needed),
   picks the best not-yet-published post that has an image, and sends

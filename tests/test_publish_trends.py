@@ -94,3 +94,86 @@ def test_tracked_subreddits_parsing(monkeypatch):
                        " ProgrammerHumor , funnyAnimals ,, linuxmemes ")
     assert publish_trends.tracked_subreddits() == [
         "ProgrammerHumor", "funnyAnimals", "linuxmemes"]
+
+
+def test_listing_chain_default(monkeypatch):
+    monkeypatch.delenv("TREND_LISTINGS", raising=False)
+    assert publish_trends.listing_chain() == ["rising", "top:week"]
+
+
+def test_listing_chain_env_override(monkeypatch):
+    monkeypatch.setenv("TREND_LISTINGS", " rising ,, top:month ")
+    assert publish_trends.listing_chain() == ["rising", "top:month"]
+
+
+@pytest.fixture
+def listing_stubs(monkeypatch):
+    """Stub trend_watcher per listing and record which listings were fetched."""
+    import trend_watcher
+
+    fetched = []
+    feeds = {}
+    scores = {}
+
+    def fake_fetch_listing(subreddit, listing="rising", retries=4, pause=35):
+        fetched.append(listing)
+        return feeds.get(listing, [])
+
+    def fake_listing_scores(subreddit, listing="rising", retries=4, pause=35):
+        return scores.get(listing, {})
+
+    monkeypatch.setattr(trend_watcher, "fetch_listing", fake_fetch_listing)
+    monkeypatch.setattr(trend_watcher, "listing_scores", fake_listing_scores)
+    monkeypatch.setattr(publish_trends.time, "sleep", lambda seconds: None)
+    return {"fetched": fetched, "feeds": feeds, "scores": scores}
+
+
+def test_select_candidate_falls_back_to_top_week(store, listing_stubs):
+    listing_stubs["feeds"]["rising"] = [make_candidate("1low01")]
+    listing_stubs["scores"]["rising"] = {"1low01": 42}
+    listing_stubs["feeds"]["top:week"] = [make_candidate("1top99")]
+    listing_stubs["scores"]["top:week"] = {"1top99": 4200}
+
+    choice, scores = publish_trends.select_candidate(store, "ProgrammerHumor", 500)
+
+    assert choice["reddit_id"] == "1top99"
+    assert scores == {"1top99": 4200}
+    assert listing_stubs["fetched"] == ["rising", "top:week"]
+
+
+def test_select_candidate_skips_fallback_when_rising_delivers(store, listing_stubs):
+    listing_stubs["feeds"]["rising"] = [make_candidate("1hot42")]
+    listing_stubs["scores"]["rising"] = {"1hot42": 900}
+    listing_stubs["feeds"]["top:week"] = [make_candidate("1top99")]
+    listing_stubs["scores"]["top:week"] = {"1top99": 4200}
+
+    choice, scores = publish_trends.select_candidate(store, "ProgrammerHumor", 500)
+
+    assert choice["reddit_id"] == "1hot42"
+    assert listing_stubs["fetched"] == ["rising"]  # no needless second request
+
+
+def test_select_candidate_exhausted_chain_returns_none(store, listing_stubs):
+    listing_stubs["feeds"]["rising"] = [make_candidate("1low01")]
+    listing_stubs["scores"]["rising"] = {"1low01": 42}
+    listing_stubs["feeds"]["top:week"] = []
+
+    choice, scores = publish_trends.select_candidate(store, "ProgrammerHumor", 500)
+
+    assert choice is None
+    assert scores == {}
+    assert listing_stubs["fetched"] == ["rising", "top:week"]
+
+
+def test_select_candidate_skips_published_in_fallback(store, listing_stubs):
+    published_store.mark_published(
+        store, "1top99", "ProgrammerHumor", "A meme",
+        "https://reddit.com/r/ProgrammerHumor/comments/1top99/", 111)
+    listing_stubs["feeds"]["rising"] = []
+    listing_stubs["feeds"]["top:week"] = [make_candidate("1top99"),
+                                          make_candidate("1new77")]
+    listing_stubs["scores"]["top:week"] = {"1top99": 4200, "1new77": 800}
+
+    choice, scores = publish_trends.select_candidate(store, "ProgrammerHumor", 500)
+
+    assert choice["reddit_id"] == "1new77"

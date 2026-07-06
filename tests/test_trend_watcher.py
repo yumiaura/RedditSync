@@ -121,3 +121,50 @@ class TestGalleryImageUrls:
         monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
         assert trend_watcher.gallery_image_urls(
             "https://reddit.com/r/x/comments/abc/x/", "abc") == []
+
+
+class TestListingUrls:
+
+    def test_rising_maps_to_plain_paths(self):
+        rss_url, html_url = trend_watcher.listing_urls("ProgrammerHumor", "rising")
+        assert rss_url == "https://old.reddit.com/r/ProgrammerHumor/rising.rss"
+        assert html_url == "https://old.reddit.com/r/ProgrammerHumor/rising/"
+
+    def test_top_week_maps_to_t_query(self):
+        rss_url, html_url = trend_watcher.listing_urls("linuxmemes", "top:week")
+        assert rss_url == "https://old.reddit.com/r/linuxmemes/top.rss?t=week"
+        assert html_url == "https://old.reddit.com/r/linuxmemes/top/?t=week"
+
+    def test_spec_whitespace_tolerated(self):
+        rss_url, html_url = trend_watcher.listing_urls("funnyAnimals", " top : month ")
+        assert rss_url == "https://old.reddit.com/r/funnyAnimals/top.rss?t=month"
+        assert html_url == "https://old.reddit.com/r/funnyAnimals/top/?t=month"
+
+
+class TestFetchListing:
+
+    def test_fetch_listing_requests_listing_rss(self, monkeypatch, rising_atom_bytes):
+        requested = []
+
+        def fake_get(url, headers=None, timeout=None):
+            requested.append(url)
+            return FakeResponse(rising_atom_bytes)
+
+        monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
+        candidates = trend_watcher.fetch_listing("ProgrammerHumor", "top:week")
+        assert requested == [
+            "https://old.reddit.com/r/ProgrammerHumor/top.rss?t=week"]
+        assert len(candidates) == 4
+
+    def test_listing_scores_requests_listing_html(self, monkeypatch, rising_html_text):
+        requested = []
+
+        def fake_get(url, headers=None, timeout=None):
+            requested.append(url)
+            return FakeResponse(rising_html_text)
+
+        monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
+        scores = trend_watcher.listing_scores("ProgrammerHumor", "top:week")
+        assert requested == [
+            "https://old.reddit.com/r/ProgrammerHumor/top/?t=week"]
+        assert scores  # fixture yields a non-empty score map

@@ -28,20 +28,42 @@ FULLNAME_RE = re.compile(r'data-fullname="t3_([a-z0-9]+)"')
 SCORE_RE = re.compile(r'data-score="(-?\d+)"')
 
 
-def fetch_rising(subreddit, retries=4, pause=35):
+def listing_urls(subreddit, listing):
+    """Map a listing spec to its (rss_url, html_url) pair on old.reddit.
+
+    A spec is a listing name with an optional time period after a colon:
+    "rising" -> /r/<sub>/rising.rss and /r/<sub>/rising/,
+    "top:week" -> /r/<sub>/top.rss?t=week and /r/<sub>/top/?t=week.
+    """
+    name, sep, period = listing.partition(":")
+    name = name.strip()
+    query = f"?t={period.strip()}" if period.strip() else ""
+    base = f"https://old.reddit.com/r/{subreddit}/{name}"
+    return f"{base}.rss{query}", f"{base}/{query}"
+
+
+def get_with_backoff(url, retries=4, pause=35, timeout=20):
+    """GET with old.reddit's rate limit in mind: back off and retry on 429."""
     response = None
     for attempt in range(retries):
         if attempt:
             time.sleep(pause * attempt)
         response = requests.get(
-            f"https://old.reddit.com/r/{subreddit}/rising.rss",
-            headers={"User-Agent": USER_AGENT},
-            timeout=15,
-        )
+            url, headers={"User-Agent": USER_AGENT}, timeout=timeout)
         if response.status_code != 429:
             break
+    return response
+
+
+def fetch_listing(subreddit, listing="rising", retries=4, pause=35):
+    rss_url, html_url = listing_urls(subreddit, listing)
+    response = get_with_backoff(rss_url, retries, pause, timeout=15)
     response.raise_for_status()
     return parse_feed(subreddit, response.content)
+
+
+def fetch_rising(subreddit, retries=4, pause=35):
+    return fetch_listing(subreddit, "rising", retries, pause)
 
 
 def parse_feed(subreddit, raw_xml):
@@ -95,26 +117,20 @@ def extract_image(entry, content):
     return None
 
 
-def rising_scores(subreddit, retries=4, pause=35):
-    """Map reddit_id -> score from the old.reddit rising HTML.
+def listing_scores(subreddit, listing="rising", retries=4, pause=35):
+    """Map reddit_id -> score from an old.reddit listing HTML page.
 
     The Atom feed carries no score and the JSON API rejects datacenter IPs, but
     the HTML listing marks every post with data-fullname and data-score.
     Returns {} if the page can't be read (callers then publish nothing).
     """
-    response = None
-    for attempt in range(retries):
-        if attempt:
-            time.sleep(pause * attempt)
-        response = requests.get(
-            f"https://old.reddit.com/r/{subreddit}/rising/",
-            headers={"User-Agent": USER_AGENT}, timeout=20)
-        if response.status_code != 429:
-            break
+    rss_url, html_url = listing_urls(subreddit, listing)
+    response = get_with_backoff(html_url, retries, pause, timeout=20)
     if response is None or response.status_code != 200:
         logger.warning(
-            "rising HTML for r/%s not readable (HTTP %s) — publishing nothing",
-            subreddit, response.status_code if response is not None else "n/a")
+            "%s HTML for r/%s not readable (HTTP %s) — publishing nothing",
+            listing, subreddit,
+            response.status_code if response is not None else "n/a")
         return {}
     scores = {}
     for attrs in THING_RE.findall(response.text):
@@ -124,9 +140,13 @@ def rising_scores(subreddit, retries=4, pause=35):
             scores[fullname.group(1)] = int(score.group(1))
     if not scores:
         logger.warning(
-            "rising HTML for r/%s parsed to zero scores — old.reddit markup change?",
-            subreddit)
+            "%s HTML for r/%s parsed to zero scores — old.reddit markup change?",
+            listing, subreddit)
     return scores
+
+
+def rising_scores(subreddit, retries=4, pause=35):
+    return listing_scores(subreddit, "rising", retries, pause)
 
 
 def gallery_image_urls(permalink, post_id, retries=4, pause=35):
@@ -139,14 +159,7 @@ def gallery_image_urls(permalink, post_id, retries=4, pause=35):
     """
     old_permalink = permalink.replace("://reddit.com", "://old.reddit.com")
     old_permalink = old_permalink.replace("://www.reddit.com", "://old.reddit.com")
-    response = None
-    for attempt in range(retries):
-        if attempt:
-            time.sleep(pause * attempt)
-        response = requests.get(
-            old_permalink, headers={"User-Agent": USER_AGENT}, timeout=20)
-        if response.status_code != 429:
-            break
+    response = get_with_backoff(old_permalink, retries, pause, timeout=20)
     if response is None or response.status_code != 200:
         logger.warning(
             "gallery page %s not readable (HTTP %s)", old_permalink,

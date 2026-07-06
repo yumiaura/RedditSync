@@ -135,6 +135,16 @@
   flags the container unhealthy when the scheduler heartbeat goes stale
   (`fix/security-hardening`).
 
+### Added (publisher)
+- Configurable listing chain with `top?t=week` fallback: the publisher walks
+  `TREND_LISTINGS` (default `rising,top:week`) per subreddit and publishes
+  from the first listing that yields an unposted image post above `MIN_SCORE`,
+  so a slow subreddit gets the week's best post instead of silence.
+  `trend_watcher` gains `listing_urls`/`fetch_listing`/`listing_scores`
+  (with `fetch_rising`/`rising_scores` kept as thin wrappers) and a shared
+  `get_with_backoff` helper; `publish_trends` gains `listing_chain` and
+  `select_candidate` (`fix/security-hardening`).
+
 ### Added (tests & CI)
 - Offline pytest suite (32 tests, ~2 s): `trend_watcher` parsers against
   saved Atom/HTML fixtures (including the preview→i.redd.it upgrade, gallery

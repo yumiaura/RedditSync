@@ -29,6 +29,9 @@ There are two independent parts, and you can run either on its own:
 - "Best trending" = the order Reddit itself assigns to rising posts. The first
   post that has an image, a score of at least `MIN_SCORE`, and has not been
   published yet is chosen (scores come from the old.reddit HTML listing).
+- If rising has nothing above the threshold, the publisher walks the
+  `TREND_LISTINGS` chain (default `rising,top:week`), so a slow subreddit
+  still gets the week's best post instead of silence.
 - Posts **photo + caption** (title + `r/<subreddit>` link) to the channel.
   Gallery posts go out as a single **album** with every image at full resolution.
 - A SQLite store (`published.sqlite`) remembers every published post id and its
@@ -46,6 +49,7 @@ Add these to your `.env` (see `env.example`):
 | `TELEGRAM_CHANNEL_ID` | Target channel id (e.g. `-1001234567890`) | *Required* |
 | `TREND_SUBREDDITS` | Comma-separated subreddits to watch | `ProgrammerHumor` |
 | `MIN_SCORE` | Minimum score (upvotes) per published post | `500` |
+| `TREND_LISTINGS` | Listing chain tried in order (`name[:period]`) | `rising,top:week` |
 | `PUBLISH_TIMES` | Comma-separated `HH:MM` slots in UTC | `09:00,21:00` |
 | `PUBLISHED_DB` | Path to the dedup SQLite store | `./data/published.sqlite` |
 

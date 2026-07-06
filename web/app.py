@@ -147,7 +147,12 @@ def subscriptions():
 def media_file(filename):
     """Serve media files with appropriate processing."""
     file_path = os.path.join(MEDIA_DIR, filename)
-    
+
+    # <path:> accepts "../" sequences and the fallbacks below open the raw
+    # path, so refuse anything that resolves outside MEDIA_DIR.
+    if not Path(file_path).resolve().is_relative_to(Path(MEDIA_DIR).resolve()):
+        abort(404)
+
     if not os.path.exists(file_path):
         abort(404)
     
@@ -226,4 +231,6 @@ def close_db_connections(error):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # The Werkzeug debugger allows remote code execution if the port is
+    # reachable, so debug stays off unless FLASK_DEBUG opts in explicitly.
+    app.run(debug=os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true', 'yes'))

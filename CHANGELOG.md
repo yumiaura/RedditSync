@@ -57,3 +57,11 @@
   (`id="media-tile-<post>-<media>"`, reachable without OAuth) and upgraded to
   full-resolution `i.redd.it` URLs. `app/telegram_publisher.py` gains
   `send_media_group`; `app/trend_watcher.py` gains `gallery_image_urls`.
+
+### Security
+- Web UI: `/media/<path>` now resolves the requested file and refuses anything
+  outside `media/`, closing a path traversal where `../../etc/...` could be
+  read through the HTML/PDF/image fallbacks (`fix/security-hardening`).
+- Web UI: the Flask debug server (Werkzeug interactive debugger — remote code
+  execution if reachable) is gated behind `FLASK_DEBUG`, default off; README
+  documents running behind a real WSGI server (`fix/security-hardening`).

@@ -114,6 +114,11 @@ python app/main.py
 cd web && python app.py
 ```
 
+The web interface starts with the Flask debug server **disabled**; set
+`FLASK_DEBUG=1` only for local development. For anything reachable from the
+network, run it behind a real WSGI server instead, e.g.
+`gunicorn -w 2 -b 127.0.0.1:5000 web.app:app`.
+
 The sync engine uses **SQLAlchemy 2.0** (async, via `aiosqlite`) over three
 tables — `subscriptions`, `news`, `media` — with a background scheduler that
 performs an initial sync shortly after launch and a regular sync every two

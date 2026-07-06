@@ -20,7 +20,7 @@ import trend_watcher
 
 logger = logging.getLogger("trend_publisher")
 DEFAULT_SUBREDDITS = "ProgrammerHumor"
-DEFAULT_MIN_SCORE = 1000
+DEFAULT_MIN_SCORE = 500
 RATE_LIMIT_PAUSE = 30
 
 

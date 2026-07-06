@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- `.github/FUNDING.yml` with GitHub Sponsors, Buy Me a Coffee and Patreon links
+  (`chore/funding`).
 - Trend auto-publisher (`feat/trend-publisher`): fetches rising posts for each
   subreddit in `TREND_SUBREDDITS` via public Atom feeds (no OAuth needed),
   picks the best not-yet-published post that has an image, and sends

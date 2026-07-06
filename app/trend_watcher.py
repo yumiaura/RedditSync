@@ -5,11 +5,14 @@ Reddit's JSON endpoints reject datacenter IPs, but the RSS/Atom feeds
 means the feed order Reddit itself assigns to rising posts.
 """
 import html
+import logging
 import re
 import time
 import xml.etree.ElementTree as ElementTree
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 MEDIA = "{http://search.yahoo.com/mrss/}"
@@ -63,6 +66,10 @@ def parse_feed(subreddit, raw_xml):
             "image_url": extract_image(entry, content),
             "is_gallery": bool(GALLERY_RE.search(text)) or "/gallery/" in permalink,
         })
+    if not candidates:
+        logger.warning(
+            "rising feed for r/%s yielded no entries — empty feed or markup change?",
+            subreddit)
     return candidates
 
 
@@ -105,6 +112,9 @@ def rising_scores(subreddit, retries=4, pause=35):
         if response.status_code != 429:
             break
     if response is None or response.status_code != 200:
+        logger.warning(
+            "rising HTML for r/%s not readable (HTTP %s) — publishing nothing",
+            subreddit, response.status_code if response is not None else "n/a")
         return {}
     scores = {}
     for attrs in THING_RE.findall(response.text):
@@ -112,6 +122,10 @@ def rising_scores(subreddit, retries=4, pause=35):
         score = SCORE_RE.search(attrs)
         if fullname and score:
             scores[fullname.group(1)] = int(score.group(1))
+    if not scores:
+        logger.warning(
+            "rising HTML for r/%s parsed to zero scores — old.reddit markup change?",
+            subreddit)
     return scores
 
 
@@ -134,6 +148,9 @@ def gallery_image_urls(permalink, post_id, retries=4, pause=35):
         if response.status_code != 429:
             break
     if response is None or response.status_code != 200:
+        logger.warning(
+            "gallery page %s not readable (HTTP %s)", old_permalink,
+            response.status_code if response is not None else "n/a")
         return []
     page = response.text
     urls = []
@@ -144,4 +161,7 @@ def gallery_image_urls(permalink, post_id, retries=4, pause=35):
         seen.add(media_id)
         extension = re.search(re.escape(media_id) + r"\.(jpg|jpeg|png|gif)", page)
         urls.append(f"https://i.redd.it/{media_id}.{extension.group(1) if extension else 'jpg'}")
+    if not urls:
+        logger.warning(
+            "gallery page for post %s parsed to zero images — markup change?", post_id)
     return urls

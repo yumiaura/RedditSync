@@ -90,7 +90,8 @@ async def write_stream_to_file(
         file_path.unlink(missing_ok=True)
         raise
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10),
+       reraise=True)
 async def download_file(
     client: httpx.AsyncClient,
     url: str,
@@ -173,8 +174,11 @@ async def download_media(
     try:
         async with semaphore, http_client() as client:
             return await download_file(client, url, media_path, max_size)
-    except Exception as e:
-        logger.error(f"Failed to download {url}: {e}")
+    except (httpx.HTTPError, ValueError, OSError) as error:
+        # Expected failure modes: network/HTTP errors, blocked or oversized
+        # downloads (ValueError), filesystem errors. Callers treat None as
+        # "no media for this post".
+        logger.error(f"Failed to download {url}: {error}")
         return None
 
 async def download_many(

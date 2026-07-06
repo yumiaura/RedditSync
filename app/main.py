@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.triggers.cron import CronTrigger
 from zoneinfo import ZoneInfo
 
 # Add current directory to path for relative imports
@@ -58,8 +57,8 @@ async def sync_news_task(max_posts: int = 5):
             )
             logger.info(f"Successfully completed news sync task ({max_posts} posts)")
             
-    except Exception as e:
-        logger.error(f"News sync task failed: {e}")
+    except Exception:
+        logger.exception("News sync task failed")
         raise
 
 
@@ -70,8 +69,8 @@ def run_async_task(async_func, *args, **kwargs):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(async_func(*args, **kwargs))
-    except Exception as e:
-        logger.error(f"Async task execution failed: {e}")
+    except Exception:
+        logger.exception("Async task execution failed")
     finally:
         loop.close()
 
@@ -92,8 +91,8 @@ def main():
         loop.close()
 
         logging.info("Database initialized successfully")
-    except Exception as e:
-        logging.error(f"Failed to initialize database: {e}")
+    except Exception:
+        logging.exception("Failed to initialize database")
         raise
     
     scheduler = BackgroundScheduler(timezone=TIMEZONE)

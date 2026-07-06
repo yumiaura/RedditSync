@@ -99,8 +99,9 @@ async def sync_media_item(
                 media_info['uid_filename']
             )
             logger.info(f"Successfully downloaded media for post {item['external_id']}")
-    except Exception as e:
-        logger.error(f"Media download failed for post {item['external_id']}: {e}")
+    except Exception:
+        # One failed download must not kill the whole batch
+        logger.exception(f"Media download failed for post {item['external_id']}")
 
 async def sync_pending_media(
     media_dir: str = 'media',
@@ -150,8 +151,9 @@ async def sync_all(
             thread_limit = max_posts - total_processed if max_posts else 100
             processed = await sync_thread(reddit, sub.thread_id, limit=thread_limit)
             total_processed += processed
-        except Exception as e:
-            logger.error(f"Failed to sync {sub.thread_id}: {e}")
+        except Exception:
+            # One failed subreddit must not stop the others
+            logger.exception(f"Failed to sync {sub.thread_id}")
 
     # Download media concurrently
     await sync_pending_media(media_dir, max_concurrent)

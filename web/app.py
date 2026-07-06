@@ -5,13 +5,14 @@ Uses SQLAlchemy ORM for database operations and supports various media types.
 """
 import asyncio
 import io
-import mimetypes
+import logging
 import os
 from pathlib import Path
 import sys
 
 from flask import Flask, render_template, send_from_directory, url_for, redirect, send_file, abort
 from PIL import Image, ImageDraw, ImageFont
+from sqlalchemy import select
 import magic
 import fitz  # PyMuPDF for PDF processing
 
@@ -20,7 +21,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
 
 from app import db
 from app.config import database_path, media_dir_path
-from app.models import News, Media, Subscription
+from app.models import News, Subscription
+
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -60,7 +63,6 @@ def index():
         await ensure_db_initialized()
         # Get all news items ordered by newest first
         async with db.get_session() as session:
-            from sqlalchemy import select
             stmt = select(News).order_by(News.added_at.desc()).limit(100)
             result = await session.execute(stmt)
             news_items = result.scalars().all()
@@ -88,7 +90,6 @@ def news_detail(news_id):
     async def get_news_detail():
         await ensure_db_initialized()
         async with db.get_session() as session:
-            from sqlalchemy import select
             stmt = select(News).where(News.id == news_id)
             result = await session.execute(stmt)
             item = result.scalar_one_or_none()
@@ -126,7 +127,6 @@ def subscriptions():
     async def get_subscriptions_data():
         await ensure_db_initialized()
         async with db.get_session() as session:
-            from sqlalchemy import select
             stmt = select(Subscription).order_by(Subscription.added_at.desc())
             result = await session.execute(stmt)
             subs = result.scalars().all()
@@ -193,8 +193,8 @@ def media_file(filename):
                 img_data.save(buf, format='PNG')
                 buf.seek(0)
                 return send_file(buf, mimetype='image/png')
-        except Exception as e:
-            print(f"PDF conversion error: {e}")
+        except Exception:
+            logger.exception("PDF preview failed for %s", file_path)
     
     try:
         # Try to open as image
@@ -203,7 +203,7 @@ def media_file(filename):
             img.save(buf, format='PNG')
             buf.seek(0)
             return send_file(buf, mimetype='image/png')
-    except Exception:
+    except (OSError, ValueError):
         # If nothing worked, generate preview with file information
         img = Image.new('RGB', (400, 200), color=(200, 200, 200))
         d = ImageDraw.Draw(img)
@@ -228,8 +228,8 @@ def close_db_connections(error):
     if db_initialized:
         try:
             run_async(db.close_db())
-        except Exception as e:
-            print(f"Error closing database connections: {e}")
+        except Exception:
+            logger.exception("Error closing database connections")
 
 
 if __name__ == '__main__':

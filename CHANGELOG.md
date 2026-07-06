@@ -111,6 +111,22 @@
 - `LICENSE` file (MIT), matching the claim in the README
   (`fix/security-hardening`).
 
+### Changed (code quality)
+- Error handling pass across `app/` and `web/`: `print()` calls replaced with
+  `logging`; broad `except Exception` blocks either narrowed to the expected
+  exceptions (`media_downloader.download_media`,
+  `reddit_client.extract_media_url`, the web image fallback) or switched to
+  `logger.exception` so tracebacks are preserved; the downloader retry now
+  re-raises the original error instead of a wrapped `RetryError`
+  (`fix/security-hardening`).
+- `web/app.py`: repeated in-function `from sqlalchemy import select` imports
+  hoisted to module top; unused imports removed repo-wide (ruff F401 clean)
+  (`fix/security-hardening`).
+- `trend_watcher` logs a warning whenever a rising feed, the rising HTML
+  scores or a gallery page parse to zero results, so an old.reddit markup
+  change is visible in the logs instead of silently publishing nothing
+  (`fix/security-hardening`).
+
 ### Removed
 - `news.sql` — a raw-SQL dump left over from before the ORM migration,
   referenced by nothing in the repo (`fix/security-hardening`).

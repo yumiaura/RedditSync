@@ -50,7 +50,8 @@ Add these to your `.env` (see `env.example`):
 | `TREND_SUBREDDITS` | Comma-separated subreddits to watch | `ProgrammerHumor` |
 | `MIN_SCORE` | Minimum score (upvotes) per published post | `500` |
 | `TREND_LISTINGS` | Listing chain tried in order (`name[:period]`) | `rising,top:week` |
-| `PUBLISH_TIMES` | Comma-separated `HH:MM` slots in UTC | `09:00,21:00` |
+| `PUBLISH_TIMES` | Comma-separated `HH:MM` slots in `PUBLISH_TZ` | `09:00,21:00` |
+| `PUBLISH_TZ` | IANA timezone for the publish slots (e.g. `Europe/Lisbon`) | `UTC` |
 | `PUBLISHED_DB` | Path to the dedup SQLite store | `./data/published.sqlite` |
 
 ### Running

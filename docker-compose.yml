@@ -1,6 +1,11 @@
 services:
   trend-publisher:
-    build: .
+    build:
+      context: .
+      args:
+        # Set APP_UID in .env to your host uid (id -u) so the container
+        # user can write the mounted ./data volume.
+        APP_UID: "${APP_UID:-1000}"
     env_file:
       - .env
     environment:

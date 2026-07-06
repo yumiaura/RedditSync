@@ -7,9 +7,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# uid 1000 matches the typical host user so the mounted ./data volume
-# stays writable
-RUN useradd --create-home --uid 1000 appuser && chown -R appuser /app
+# Match the host user's uid (APP_UID build arg, see docker-compose.yml)
+# so the mounted ./data volume stays writable both ways.
+ARG APP_UID=1000
+RUN useradd --create-home --uid ${APP_UID} appuser && chown -R appuser /app
 USER appuser
 
 # The scheduler refreshes this file every minute; a stale file means the

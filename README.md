@@ -27,12 +27,14 @@ There are two independent parts, and you can run either on its own:
   Reddit's JSON API rejects datacenter IPs, but the Atom feeds stay open, so the
   publisher needs **no OAuth** — only a Telegram bot token.
 - "Best trending" = the order Reddit itself assigns to rising posts. The first
-  post that has an image and has not been published yet is chosen.
+  post that has an image, a score of at least `MIN_SCORE`, and has not been
+  published yet is chosen (scores come from the old.reddit HTML listing).
 - Posts **photo + caption** (title + `r/<subreddit>` link) to the channel.
+  Gallery posts go out as a single **album** with every image at full resolution.
 - A SQLite store (`published.sqlite`) remembers every published post id and its
   Telegram `message_id`, so nothing is ever posted twice.
-- One post per tracked subreddit per run. With the default twice-a-day schedule,
-  **two subreddits ⇒ four posts per day**.
+- One post per tracked subreddit per run. With three subreddits on the default
+  twice-a-day schedule, that's up to **six posts per day**.
 
 ### Configuration
 
@@ -43,6 +45,7 @@ Add these to your `.env` (see `env.example`):
 | `TELEGRAM_TOKEN` | Bot token from @BotFather | *Required* |
 | `TELEGRAM_CHANNEL_ID` | Target channel id (e.g. `-1001234567890`) | *Required* |
 | `TREND_SUBREDDITS` | Comma-separated subreddits to watch | `ProgrammerHumor` |
+| `MIN_SCORE` | Only publish posts with at least this score | `1000` |
 | `PUBLISH_TIMES` | Comma-separated `HH:MM` slots in UTC | `09:00,21:00` |
 | `PUBLISHED_DB` | Path to the dedup SQLite store | `./data/published.sqlite` |
 

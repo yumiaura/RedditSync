@@ -20,6 +20,7 @@ import trend_watcher
 
 logger = logging.getLogger("trend_publisher")
 DEFAULT_SUBREDDITS = "ProgrammerHumor"
+DEFAULT_MIN_SCORE = 1000
 RATE_LIMIT_PAUSE = 30
 
 
@@ -28,9 +29,15 @@ def tracked_subreddits():
     return [name.strip() for name in raw.split(",") if name.strip()]
 
 
-def pick_unsent(connection, candidates):
+def min_score():
+    return int(os.getenv("MIN_SCORE", DEFAULT_MIN_SCORE))
+
+
+def pick_unsent(connection, candidates, scores, threshold):
     for candidate in candidates:
         if not candidate["reddit_id"] or not candidate["image_url"]:
+            continue
+        if scores.get(candidate["reddit_id"], 0) < threshold:
             continue
         if published_store.is_published(connection, candidate["reddit_id"]):
             continue
@@ -51,16 +58,19 @@ def publish_once(dry_run=False):
         for position, subreddit in enumerate(tracked_subreddits()):
             if position:
                 time.sleep(RATE_LIMIT_PAUSE)  # respect Reddit's RSS rate limit
+            threshold = min_score()
             try:
                 candidates = trend_watcher.fetch_rising(subreddit)
+                scores = trend_watcher.rising_scores(subreddit)
             except Exception as error:
                 logger.error("r/%s: could not fetch rising: %s", subreddit, error)
                 continue
-            choice = pick_unsent(connection, candidates)
+            choice = pick_unsent(connection, candidates, scores, threshold)
             if not choice:
-                logger.info("r/%s: no fresh post with an image to publish",
-                            subreddit)
+                logger.info("r/%s: no unposted image post with score >= %d",
+                            subreddit, threshold)
                 continue
+            score = scores.get(choice["reddit_id"], 0)
             caption = telegram_publisher.build_caption(
                 choice["title"], subreddit, choice["permalink"])
             images = [choice["image_url"]]
@@ -70,9 +80,9 @@ def publish_once(dry_run=False):
                 if len(gallery) > 1:
                     images = gallery
             if dry_run:
-                logger.info("r/%s: would publish '%s' (%s), %d image(s)",
+                logger.info("r/%s: would publish '%s' (%s), score %d, %d image(s)",
                             subreddit, choice["title"], choice["reddit_id"],
-                            len(images))
+                            score, len(images))
                 continue
             if len(images) > 1:
                 result = telegram_publisher.send_media_group(
@@ -84,8 +94,8 @@ def publish_once(dry_run=False):
             published_store.mark_published(
                 connection, choice["reddit_id"], subreddit,
                 choice["title"], choice["permalink"], message_id)
-            logger.info("r/%s: published '%s' as message_id=%s",
-                        subreddit, choice["title"], message_id)
+            logger.info("r/%s: published '%s' (score %d) as message_id=%s",
+                        subreddit, choice["title"], score, message_id)
             published.append((subreddit, choice["title"], message_id))
     finally:
         connection.close()

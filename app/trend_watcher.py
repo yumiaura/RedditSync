@@ -20,6 +20,9 @@ PREVIEW_RE = re.compile(r"https://preview\.redd\.it/([A-Za-z0-9]+\.[A-Za-z0-9]+)
 COMMENTS_RE = re.compile(r"/comments/([a-z0-9]+)/")
 GALLERY_RE = re.compile(r"reddit\.com/gallery/[a-z0-9]+")
 MEDIA_TILE_RE = re.compile(r'id="media-tile-([a-z0-9]+)-([A-Za-z0-9]+)"')
+THING_RE = re.compile(r'<div\b([^>]*\bdata-fullname="t3_[a-z0-9]+"[^>]*)>')
+FULLNAME_RE = re.compile(r'data-fullname="t3_([a-z0-9]+)"')
+SCORE_RE = re.compile(r'data-score="(-?\d+)"')
 
 
 def fetch_rising(subreddit, retries=4, pause=35):
@@ -83,6 +86,33 @@ def extract_image(entry, content):
         if preview:
             return f"https://i.redd.it/{preview.group(1)}"
     return None
+
+
+def rising_scores(subreddit, retries=4, pause=35):
+    """Map reddit_id -> score from the old.reddit rising HTML.
+
+    The Atom feed carries no score and the JSON API rejects datacenter IPs, but
+    the HTML listing marks every post with data-fullname and data-score.
+    Returns {} if the page can't be read (callers then publish nothing).
+    """
+    response = None
+    for attempt in range(retries):
+        if attempt:
+            time.sleep(pause * attempt)
+        response = requests.get(
+            f"https://old.reddit.com/r/{subreddit}/rising/",
+            headers={"User-Agent": USER_AGENT}, timeout=20)
+        if response.status_code != 429:
+            break
+    if response is None or response.status_code != 200:
+        return {}
+    scores = {}
+    for attrs in THING_RE.findall(response.text):
+        fullname = FULLNAME_RE.search(attrs)
+        score = SCORE_RE.search(attrs)
+        if fullname and score:
+            scores[fullname.group(1)] = int(score.group(1))
+    return scores
 
 
 def gallery_image_urls(permalink, post_id, retries=4, pause=35):

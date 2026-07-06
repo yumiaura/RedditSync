@@ -25,6 +25,8 @@
   local databases).
 
 ### Changed
+- Captions no longer carry a decorative leading emoji — just the bold title and
+  the `r/<subreddit>` link.
 - `README.md` rewritten: a banner at the top links the live Telegram channel
   ([t.me/humorfromyumi](https://t.me/humorfromyumi)) and the trend publisher is
   documented as a first-class feature alongside the sync engine.
@@ -39,6 +41,9 @@
 - Default `TREND_SUBREDDITS` in `env.example` now includes `linuxmemes`.
 
 ### Added (continued)
+- Score threshold: only posts with a score of at least `MIN_SCORE` (default
+  1000) are published. Scores are read from the old.reddit rising HTML
+  (`data-score`), since the Atom feed carries none — `trend_watcher.rising_scores`.
 - Gallery posts are published as a single Telegram **album** (`sendMediaGroup`)
   instead of one image. Gallery images are enumerated from the old.reddit HTML
   (`id="media-tile-<post>-<media>"`, reachable without OAuth) and upgraded to

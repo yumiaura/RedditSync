@@ -12,7 +12,7 @@ USER_AGENT = ("Mozilla/5.0 (X11; Linux x86_64; rv:128.0) "
 
 def build_caption(title, subreddit, permalink):
     return (
-        f"🍝 <b>{html.escape(title)}</b>\n"
+        f"<b>{html.escape(title)}</b>\n"
         f'<a href="{permalink}">r/{subreddit}</a>'
     )
 

@@ -126,6 +126,14 @@
   scores or a gallery page parse to zero results, so an old.reddit markup
   change is visible in the logs instead of silently publishing nothing
   (`fix/security-hardening`).
+- `trend_scheduler` shuts down gracefully on SIGTERM (clean `docker stop`),
+  optionally writes a rotating log file (`LOG_FILE`, 5 MB × 3 backups) and
+  refreshes a heartbeat file (`HEARTBEAT_FILE`) every minute
+  (`fix/security-hardening`).
+- Dockerfile: the container now runs as a non-root `appuser` (uid 1000, so
+  the mounted `./data` volume stays writable) and gains a `HEALTHCHECK` that
+  flags the container unhealthy when the scheduler heartbeat goes stale
+  (`fix/security-hardening`).
 
 ### Removed
 - `news.sql` — a raw-SQL dump left over from before the ORM migration,

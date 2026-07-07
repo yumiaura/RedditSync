@@ -81,17 +81,25 @@ def select_candidate(connection, subreddit, threshold):
     return None, {}
 
 
-def publish_once(dry_run=False):
+def publish_once(dry_run=False, subreddits=None):
+    """Publish one post per subreddit; defaults to all tracked subreddits.
+
+    The scheduler passes a single-subreddit list so posts spread out over
+    the day instead of going out back-to-back.
+    """
     load_dotenv()
     token = os.getenv("TELEGRAM_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHANNEL_ID")
     if not token or not chat_id:
         raise SystemExit("TELEGRAM_TOKEN and TELEGRAM_CHANNEL_ID are required")
 
+    if subreddits is None:
+        subreddits = tracked_subreddits()
+
     connection = published_store.open_store()
     published = []
     try:
-        for position, subreddit in enumerate(tracked_subreddits()):
+        for position, subreddit in enumerate(subreddits):
             if position:
                 time.sleep(RATE_LIMIT_PAUSE)  # respect Reddit's RSS rate limit
             threshold = min_score()

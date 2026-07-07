@@ -177,3 +177,36 @@ def test_select_candidate_skips_published_in_fallback(store, listing_stubs):
     choice, scores = publish_trends.select_candidate(store, "ProgrammerHumor", 500)
 
     assert choice["reddit_id"] == "1new77"
+
+
+def test_publish_once_limits_to_given_subreddits(monkeypatch, tmp_path):
+    monkeypatch.setenv("PUBLISHED_DB", str(tmp_path / "published.sqlite"))
+    monkeypatch.setenv("TELEGRAM_TOKEN", "token")
+    monkeypatch.setenv("TELEGRAM_CHANNEL_ID", "-100")
+    monkeypatch.setenv("TREND_SUBREDDITS", "ProgrammerHumor,funnyAnimals,linuxmemes")
+    asked = []
+
+    def fake_select(connection, subreddit, threshold):
+        asked.append(subreddit)
+        return None, {}
+
+    monkeypatch.setattr(publish_trends, "select_candidate", fake_select)
+    publish_trends.publish_once(dry_run=True, subreddits=["funnyAnimals"])
+    assert asked == ["funnyAnimals"]
+
+
+def test_publish_once_defaults_to_tracked_subreddits(monkeypatch, tmp_path):
+    monkeypatch.setenv("PUBLISHED_DB", str(tmp_path / "published.sqlite"))
+    monkeypatch.setenv("TELEGRAM_TOKEN", "token")
+    monkeypatch.setenv("TELEGRAM_CHANNEL_ID", "-100")
+    monkeypatch.setenv("TREND_SUBREDDITS", "a,b")
+    asked = []
+
+    def fake_select(connection, subreddit, threshold):
+        asked.append(subreddit)
+        return None, {}
+
+    monkeypatch.setattr(publish_trends, "select_candidate", fake_select)
+    monkeypatch.setattr(publish_trends.time, "sleep", lambda seconds: None)
+    publish_trends.publish_once(dry_run=True)
+    assert asked == ["a", "b"]

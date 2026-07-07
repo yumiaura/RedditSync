@@ -1,8 +1,9 @@
 """Run the trend publisher on a fixed daily schedule (default twice a day).
 
 PUBLISH_TIMES is a comma-separated list of HH:MM slots interpreted in the
-PUBLISH_TZ timezone (IANA name, default UTC). Each slot fires
-publish_once(), which posts one meme per tracked subreddit.
+PUBLISH_TZ timezone (IANA name, default UTC). Within each slot the tracked
+subreddits are staggered PUBLISH_INTERVAL minutes apart (default 60), so
+posts go out roughly once an hour instead of all at once.
 """
 import logging
 import os
@@ -23,6 +24,7 @@ import publish_trends
 
 logger = logging.getLogger("trend_scheduler")
 DEFAULT_TIMES = "09:00,21:00"
+DEFAULT_INTERVAL_MINUTES = 60
 DEFAULT_TZ = "UTC"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
@@ -48,9 +50,32 @@ def setup_logging():
         logger.info("also logging to %s (rotating, 5 MB x 3)", log_file)
 
 
-def scheduled_run():
+def publish_interval_minutes():
+    """Minutes between two subreddits' posts within one PUBLISH_TIMES slot."""
+    return int(os.getenv("PUBLISH_INTERVAL", DEFAULT_INTERVAL_MINUTES))
+
+
+def staggered_schedule(slots, subreddits, interval_minutes):
+    """Expand slots × subreddits into per-post times, one hour-ish apart.
+
+    Each subreddit is offset by its position × interval_minutes from the
+    slot, so a slot fans out over hours instead of posting everything at
+    once. Returns [(hour, minute, subreddit)]; times wrap around midnight.
+    """
+    schedule = []
+    for slot in slots:
+        hour, sep, minute = slot.partition(":")
+        base = int(hour) * 60 + int(minute or 0)
+        for position, subreddit in enumerate(subreddits):
+            total = base + position * interval_minutes
+            schedule.append(((total // 60) % 24, total % 60, subreddit))
+    return schedule
+
+
+def scheduled_run(subreddit=None):
     try:
-        publish_trends.publish_once()
+        publish_trends.publish_once(
+            subreddits=[subreddit] if subreddit else None)
     except Exception as error:
         logger.exception("scheduled publish failed: %s", error)
 
@@ -64,18 +89,21 @@ def main():
     setup_logging()
     load_dotenv()
     times = os.getenv("PUBLISH_TIMES", DEFAULT_TIMES)
+    slots = [item.strip() for item in times.split(",") if item.strip()]
+    subreddits = publish_trends.tracked_subreddits()
     timezone = publish_timezone()
     scheduler = BlockingScheduler(timezone=timezone)
-    for slot in [item.strip() for item in times.split(",") if item.strip()]:
-        hour, sep, minute = slot.partition(":")
+    for hour, minute, subreddit in staggered_schedule(
+            slots, subreddits, publish_interval_minutes()):
         scheduler.add_job(
             scheduled_run,
-            trigger=CronTrigger(hour=int(hour), minute=int(minute or 0),
-                                timezone=timezone),
-            id=f"publish_{slot}",
+            args=[subreddit],
+            trigger=CronTrigger(hour=hour, minute=minute, timezone=timezone),
+            id=f"publish_{hour:02d}{minute:02d}_{subreddit}",
             replace_existing=True,
         )
-        logger.info("scheduled daily publish at %s %s", slot, timezone)
+        logger.info("scheduled daily publish for r/%s at %02d:%02d %s",
+                    subreddit, hour, minute, timezone)
 
     heartbeat_file = os.getenv("HEARTBEAT_FILE", "").strip()
     if heartbeat_file:

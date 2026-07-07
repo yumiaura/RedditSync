@@ -38,6 +38,9 @@ There are two independent parts, and you can run either on its own:
   Telegram `message_id`, so nothing is ever posted twice.
 - One post per tracked subreddit per run. With three subreddits on the default
   twice-a-day schedule, that's up to **six posts per day**.
+- Within a slot the subreddits are staggered `PUBLISH_INTERVAL` minutes apart
+  (default 60), so the channel gets roughly one post per hour instead of a
+  burst of three.
 
 ### Configuration
 
@@ -52,6 +55,7 @@ Add these to your `.env` (see `env.example`):
 | `TREND_LISTINGS` | Listing chain tried in order (`name[:period]`) | `rising,top:week` |
 | `PUBLISH_TIMES` | Comma-separated `HH:MM` slots in `PUBLISH_TZ` | `09:00,21:00` |
 | `PUBLISH_TZ` | IANA timezone for the publish slots (e.g. `Europe/Lisbon`) | `UTC` |
+| `PUBLISH_INTERVAL` | Minutes between subreddits within a slot | `60` |
 | `PUBLISHED_DB` | Path to the dedup SQLite store | `./data/published.sqlite` |
 
 ### Running

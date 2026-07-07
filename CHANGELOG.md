@@ -9,6 +9,11 @@
   the `PUBLISH_TZ` IANA timezone (default `UTC`, e.g. `Europe/Lisbon`).
   An invalid name fails at startup with a clear error instead of silently
   scheduling in the wrong timezone (`feat/publish-timezone`).
+- Staggered publishing: within each `PUBLISH_TIMES` slot the tracked
+  subreddits now post `PUBLISH_INTERVAL` minutes apart (default 60) via one
+  cron job per (slot, subreddit), so the channel gets roughly one post per
+  hour instead of a burst of three. Restart-safe — no long sleeps inside a
+  job (`feat/staggered-publish`).
 
 ### Fixed (deployment)
 - The container user's uid is now the `APP_UID` build argument (set it in

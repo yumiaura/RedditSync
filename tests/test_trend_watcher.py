@@ -1,4 +1,4 @@
-"""Parser tests for trend_watcher against saved Atom / old.reddit HTML fixtures."""
+"""Parser and request tests for trend_watcher against a saved API listing."""
 import pytest
 
 import trend_watcher
@@ -6,11 +6,26 @@ import trend_watcher
 from conftest import FakeResponse
 
 
-class TestParseFeed:
+@pytest.fixture(autouse=True)
+def oauth_env(monkeypatch):
+    """Credentials every API call needs, plus a clean token cache per test."""
+    monkeypatch.setenv("REDDIT_CLIENT_ID", "client")
+    monkeypatch.setenv("REDDIT_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("REDDIT_REFRESH_TOKEN", "refresh")
+    monkeypatch.setattr(trend_watcher, "token_cache",
+                        {"value": None, "expires_at": 0.0})
+    monkeypatch.setattr(trend_watcher.time, "sleep", lambda seconds: None)
+
+
+def token_response():
+    return FakeResponse('{"access_token": "bearer-token", "expires_in": 3600}')
+
+
+class TestParseListing:
 
     @pytest.fixture
-    def candidates(self, rising_atom_bytes):
-        return trend_watcher.parse_feed("ProgrammerHumor", rising_atom_bytes)
+    def candidates(self, rising_payload):
+        return trend_watcher.parse_listing("ProgrammerHumor", rising_payload)
 
     def test_entry_order_and_titles(self, candidates):
         assert [candidate["title"] for candidate in candidates] == [
@@ -20,151 +35,183 @@ class TestParseFeed:
             "Text only confession",
         ]
 
-    def test_reddit_ids_extracted_from_permalinks(self, candidates):
+    def test_reddit_ids_taken_from_the_api(self, candidates):
         assert [candidate["reddit_id"] for candidate in candidates] == [
             "1abc23", "1def45", "1ghi78", "1jkl90",
         ]
 
-    def test_permalinks_rewritten_to_reddit_com(self, candidates):
+    def test_permalinks_are_absolute_reddit_com_urls(self, candidates):
         assert candidates[0]["permalink"] == (
             "https://reddit.com/r/ProgrammerHumor/comments/1abc23/"
             "tabs_spaces_the_eternal_war/"
         )
         for candidate in candidates:
-            assert "old.reddit.com" not in candidate["permalink"]
+            assert candidate["permalink"].startswith("https://reddit.com/")
 
     def test_authors_and_subreddit(self, candidates):
         assert candidates[0]["author"] == "/u/alice"
         assert all(candidate["subreddit"] == "ProgrammerHumor"
                    for candidate in candidates)
 
+    def test_scores_come_with_the_listing(self, candidates):
+        assert [candidate["score"] for candidate in candidates] == [
+            1543, 780, 412, -3,
+        ]
+
     def test_direct_iredd_image_used_verbatim(self, candidates):
         assert candidates[0]["image_url"] == "https://i.redd.it/abcdef123.jpeg"
+        assert candidates[0]["images"] == ["https://i.redd.it/abcdef123.jpeg"]
 
-    def test_preview_thumbnail_upgraded_to_iredd(self, candidates):
-        # content only carries preview.redd.it; the parser must upgrade it to
-        # the full-resolution i.redd.it original, without the query string.
+    def test_preview_source_upgraded_to_iredd(self, candidates):
+        # the post links to its own comments page; the image lives in preview,
+        # which must be upgraded to the full-resolution i.redd.it original
+        # without the query string.
         assert candidates[1]["image_url"] == "https://i.redd.it/def456gh.png"
 
-    def test_gallery_flag_and_media_thumbnail_fallback(self, candidates):
+    def test_gallery_images_enumerated_in_order(self, candidates):
         gallery = candidates[2]
         assert gallery["is_gallery"] is True
-        # image comes from the media:thumbnail element, upgraded off preview
+        assert gallery["images"] == [
+            "https://i.redd.it/ghijk890.jpg",   # extension from media_metadata
+            "https://i.redd.it/lmnop123.png",   # per-image mime respected
+            "https://i.redd.it/noext999.jpg",   # no mime -> preview upgraded
+        ]
         assert gallery["image_url"] == "https://i.redd.it/ghijk890.jpg"
-        # the non-gallery entries must not be flagged
         assert [candidate["is_gallery"] for candidate in candidates] == [
             False, False, True, False,
         ]
 
     def test_text_post_has_no_image(self, candidates):
         assert candidates[3]["image_url"] is None
+        assert candidates[3]["images"] == []
+
+    def test_empty_listing_yields_no_candidates(self):
+        assert trend_watcher.parse_listing("x", {"data": {"children": []}}) == []
 
 
-class TestRisingScores:
+class TestListingRequest:
 
-    def test_scores_parsed_from_html(self, monkeypatch, rising_html_text):
-        def fake_get(url, headers=None, timeout=None):
-            assert url == "https://old.reddit.com/r/ProgrammerHumor/rising/"
-            return FakeResponse(rising_html_text)
+    def test_rising_maps_to_plain_path(self):
+        path, params = trend_watcher.listing_request("ProgrammerHumor", "rising")
+        assert path == "/r/ProgrammerHumor/rising"
+        assert params == {"limit": trend_watcher.LISTING_LIMIT, "raw_json": 1}
 
-        monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
-        scores = trend_watcher.rising_scores("ProgrammerHumor")
-        assert scores == {
-            "1abc23": 1543,
-            "1def45": 780,
-            "1ghi78": 412,
-            "1mno12": -3,  # negative data-score parses
-            # promoted thing t3_1pqr34 has no data-score -> excluded
-        }
-
-    def test_non_200_yields_empty_mapping(self, monkeypatch):
-        def fake_get(url, headers=None, timeout=None):
-            return FakeResponse("Forbidden", status_code=403)
-
-        monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
-        assert trend_watcher.rising_scores("ProgrammerHumor") == {}
-
-
-class TestGalleryImageUrls:
-
-    def test_tiles_enumerated_in_order_with_extensions(
-            self, monkeypatch, gallery_html_text):
-        requested = []
-
-        def fake_get(url, headers=None, timeout=None):
-            requested.append(url)
-            return FakeResponse(gallery_html_text)
-
-        monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
-        urls = trend_watcher.gallery_image_urls(
-            "https://reddit.com/r/ProgrammerHumor/comments/1ghi78/"
-            "my_debugging_journey_a_saga/",
-            "1ghi78",
-        )
-        assert urls == [
-            "https://i.redd.it/ghijk890.jpg",   # extension found on page
-            "https://i.redd.it/lmnop123.png",   # per-image extension respected
-            "https://i.redd.it/noext999.jpg",   # no extension hint -> jpg
-        ]
-        # duplicated lightbox tile deduped, other post's tile (9zzz99) ignored
-        assert len(urls) == 3
-        # the fetch goes through old.reddit
-        assert requested == [
-            "https://old.reddit.com/r/ProgrammerHumor/comments/1ghi78/"
-            "my_debugging_journey_a_saga/",
-        ]
-
-    def test_unreachable_page_yields_empty_list(self, monkeypatch):
-        def fake_get(url, headers=None, timeout=None):
-            return FakeResponse("gone", status_code=404)
-
-        monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
-        assert trend_watcher.gallery_image_urls(
-            "https://reddit.com/r/x/comments/abc/x/", "abc") == []
-
-
-class TestListingUrls:
-
-    def test_rising_maps_to_plain_paths(self):
-        rss_url, html_url = trend_watcher.listing_urls("ProgrammerHumor", "rising")
-        assert rss_url == "https://old.reddit.com/r/ProgrammerHumor/rising.rss"
-        assert html_url == "https://old.reddit.com/r/ProgrammerHumor/rising/"
-
-    def test_top_week_maps_to_t_query(self):
-        rss_url, html_url = trend_watcher.listing_urls("linuxmemes", "top:week")
-        assert rss_url == "https://old.reddit.com/r/linuxmemes/top.rss?t=week"
-        assert html_url == "https://old.reddit.com/r/linuxmemes/top/?t=week"
+    def test_top_week_maps_to_t_parameter(self):
+        path, params = trend_watcher.listing_request("linuxmemes", "top:week")
+        assert path == "/r/linuxmemes/top"
+        assert params["t"] == "week"
 
     def test_spec_whitespace_tolerated(self):
-        rss_url, html_url = trend_watcher.listing_urls("funnyAnimals", " top : month ")
-        assert rss_url == "https://old.reddit.com/r/funnyAnimals/top.rss?t=month"
-        assert html_url == "https://old.reddit.com/r/funnyAnimals/top/?t=month"
+        path, params = trend_watcher.listing_request("funnyAnimals", " top : month ")
+        assert path == "/r/funnyAnimals/top"
+        assert params["t"] == "month"
+
+
+class TestAccessToken:
+
+    def test_token_minted_from_refresh_token_and_cached(self, monkeypatch):
+        posts = []
+
+        def fake_post(url, auth=None, data=None, headers=None, timeout=None):
+            posts.append((url, auth, data["grant_type"]))
+            return token_response()
+
+        monkeypatch.setattr(trend_watcher.requests, "post", fake_post)
+        assert trend_watcher.access_token() == "bearer-token"
+        assert trend_watcher.access_token() == "bearer-token"  # served from cache
+        assert posts == [(trend_watcher.TOKEN_URL, ("client", "secret"),
+                          "refresh_token")]
+
+    def test_missing_credentials_raise(self, monkeypatch):
+        monkeypatch.delenv("REDDIT_REFRESH_TOKEN", raising=False)
+        with pytest.raises(RuntimeError, match="REDDIT_REFRESH_TOKEN"):
+            trend_watcher.access_token()
+
+    def test_rejected_refresh_token_raises(self, monkeypatch):
+        def fake_post(url, auth=None, data=None, headers=None, timeout=None):
+            return FakeResponse('{"error": "invalid_grant"}', status_code=400)
+
+        monkeypatch.setattr(trend_watcher.requests, "post", fake_post)
+        with pytest.raises(RuntimeError, match="HTTP 400"):
+            trend_watcher.access_token()
 
 
 class TestFetchListing:
 
-    def test_fetch_listing_requests_listing_rss(self, monkeypatch, rising_atom_bytes):
-        requested = []
+    @pytest.fixture
+    def api_calls(self, monkeypatch, rising_json_text):
+        calls = []
 
-        def fake_get(url, headers=None, timeout=None):
-            requested.append(url)
-            return FakeResponse(rising_atom_bytes)
+        def fake_post(url, auth=None, data=None, headers=None, timeout=None):
+            return token_response()
 
+        def fake_get(url, params=None, headers=None, timeout=None):
+            calls.append((url, params, headers["Authorization"]))
+            return FakeResponse(rising_json_text)
+
+        monkeypatch.setattr(trend_watcher.requests, "post", fake_post)
         monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
+        return calls
+
+    def test_fetch_listing_requests_the_api_with_a_bearer_token(self, api_calls):
         candidates = trend_watcher.fetch_listing("ProgrammerHumor", "top:week")
-        assert requested == [
-            "https://old.reddit.com/r/ProgrammerHumor/top.rss?t=week"]
+        url, params, authorization = api_calls[0]
+        assert url == "https://oauth.reddit.com/r/ProgrammerHumor/top"
+        assert params["t"] == "week"
+        assert authorization == "bearer bearer-token"
         assert len(candidates) == 4
+        assert len(api_calls) == 1  # scores ride along, no second request
 
-    def test_listing_scores_requests_listing_html(self, monkeypatch, rising_html_text):
-        requested = []
+    def test_fetch_rising_uses_the_rising_listing(self, api_calls):
+        trend_watcher.fetch_rising("linuxmemes")
+        url, params, authorization = api_calls[0]
+        assert url == "https://oauth.reddit.com/r/linuxmemes/rising"
+        assert "t" not in params
 
-        def fake_get(url, headers=None, timeout=None):
-            requested.append(url)
-            return FakeResponse(rising_html_text)
 
+class TestApiGet:
+
+    def test_rate_limit_is_retried(self, monkeypatch, rising_json_text):
+        responses = [FakeResponse("rate limited", status_code=429),
+                     FakeResponse(rising_json_text)]
+
+        def fake_post(url, auth=None, data=None, headers=None, timeout=None):
+            return token_response()
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            return responses.pop(0)
+
+        monkeypatch.setattr(trend_watcher.requests, "post", fake_post)
         monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
-        scores = trend_watcher.listing_scores("ProgrammerHumor", "top:week")
-        assert requested == [
-            "https://old.reddit.com/r/ProgrammerHumor/top/?t=week"]
-        assert scores  # fixture yields a non-empty score map
+        payload = trend_watcher.api_get("/r/x/rising", {})
+        assert payload["data"]["children"]
+        assert responses == []
+
+    def test_rejected_token_is_minted_again(self, monkeypatch, rising_json_text):
+        minted = []
+        responses = [FakeResponse("unauthorized", status_code=401),
+                     FakeResponse(rising_json_text)]
+
+        def fake_post(url, auth=None, data=None, headers=None, timeout=None):
+            minted.append(url)
+            return token_response()
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            return responses.pop(0)
+
+        monkeypatch.setattr(trend_watcher.requests, "post", fake_post)
+        monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
+        trend_watcher.api_get("/r/x/rising", {})
+        assert len(minted) == 2  # cached token rejected -> minted again
+
+    def test_server_error_propagates(self, monkeypatch):
+        def fake_post(url, auth=None, data=None, headers=None, timeout=None):
+            return token_response()
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            return FakeResponse("boom", status_code=503)
+
+        monkeypatch.setattr(trend_watcher.requests, "post", fake_post)
+        monkeypatch.setattr(trend_watcher.requests, "get", fake_get)
+        with pytest.raises(RuntimeError, match="HTTP 503"):
+            trend_watcher.api_get("/r/x/rising", {})

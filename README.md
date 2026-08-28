@@ -11,9 +11,9 @@ database.
 There are two independent parts, and you can run either on its own:
 
 1. **Trend auto-publisher** — the piece that feeds the Telegram channel. Reads
-   rising posts from public Atom feeds (no OAuth), picks the best not-yet-posted
+   rising posts through the Reddit OAuth API, picks the best not-yet-posted
    item with an image from each tracked subreddit, and posts photo + caption to
-   the channel on a schedule. **No Reddit API credentials required.**
+   the channel on a schedule.
 2. **Sync engine** — the original archiver: OAuth2 Reddit client, background
    scheduler, media downloader, SQLAlchemy storage and a Flask browser UI.
 
@@ -23,12 +23,15 @@ There are two independent parts, and you can run either on its own:
 
 ### How it works
 
-- Fetches `/r/<subreddit>/rising.rss` for every subreddit in `TREND_SUBREDDITS`.
-  Reddit's JSON API rejects datacenter IPs, but the Atom feeds stay open, so the
-  publisher needs **no OAuth** — only a Telegram bot token.
+- Fetches `/r/<subreddit>/rising` from `oauth.reddit.com` for every subreddit in
+  `TREND_SUBREDDITS`. The anonymous routes are closed — old.reddit answers
+  logged-out requests with a login page and `www.reddit.com/*.json` answers
+  403 — so the publisher needs Reddit OAuth credentials plus a Telegram bot
+  token. Mint the refresh token once with `tools/1_get_refresh_token.py --save`.
 - "Best trending" = the order Reddit itself assigns to rising posts. The first
   post that has an image, a score of at least `MIN_SCORE`, and has not been
-  published yet is chosen (scores come from the old.reddit HTML listing).
+  published yet is chosen (score, image and gallery all arrive with the
+  listing, so one request per listing is enough).
 - If rising has nothing above the threshold, the publisher walks the
   `TREND_LISTINGS` chain (default `rising,top:week`), so a slow subreddit
   still gets the week's best post instead of silence.
@@ -48,6 +51,10 @@ Add these to your `.env` (see `env.example`):
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `REDDIT_CLIENT_ID` | Reddit app id | *Required* |
+| `REDDIT_CLIENT_SECRET` | Reddit app secret | *Required* |
+| `REDDIT_REFRESH_TOKEN` | From `tools/1_get_refresh_token.py --save` | *Required* |
+| `REDDIT_USER_AGENT` | User-Agent sent to the API | `python:redditsync:v1.0 (trend publisher)` |
 | `TELEGRAM_TOKEN` | Bot token from @BotFather | *Required* |
 | `TELEGRAM_CHANNEL_ID` | Target channel id (e.g. `-1001234567890`) | *Required* |
 | `TREND_SUBREDDITS` | Comma-separated subreddits to watch | `ProgrammerHumor` |
@@ -148,7 +155,7 @@ RedditSync/
 │   ├── media_downloader.py   # Media download
 │   ├── sync_worker.py        # Sync orchestration
 │   ├── utils.py              # Utilities
-│   ├── trend_watcher.py      # Rising RSS reader (no OAuth)
+│   ├── trend_watcher.py      # Rising listings via the Reddit OAuth API
 │   ├── telegram_publisher.py # Telegram photo posting
 │   ├── published_store.py    # SQLite dedup store
 │   ├── publish_trends.py     # Trend publisher orchestrator

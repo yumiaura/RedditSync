@@ -1,0 +1,87 @@
+{
+  "kind": "Listing",
+  "data": {
+    "after": "t3_1jkl90",
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1abc23",
+          "title": "Tabs & spaces: the eternal war",
+          "author": "alice",
+          "permalink": "/r/ProgrammerHumor/comments/1abc23/tabs_spaces_the_eternal_war/",
+          "score": 1543,
+          "is_gallery": false,
+          "url_overridden_by_dest": "https://i.redd.it/abcdef123.jpeg",
+          "url": "https://i.redd.it/abcdef123.jpeg"
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1def45",
+          "title": "It works on my machine",
+          "author": "bob",
+          "permalink": "/r/ProgrammerHumor/comments/1def45/it_works_on_my_machine/",
+          "score": 780,
+          "is_gallery": false,
+          "url_overridden_by_dest": "https://www.reddit.com/r/ProgrammerHumor/comments/1def45/it_works_on_my_machine/",
+          "url": "https://www.reddit.com/r/ProgrammerHumor/comments/1def45/it_works_on_my_machine/",
+          "preview": {
+            "images": [
+              {
+                "source": {
+                  "url": "https://preview.redd.it/def456gh.png?width=1080&auto=webp&s=deadbeef",
+                  "width": 1080,
+                  "height": 1080
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1ghi78",
+          "title": "My debugging journey, a saga",
+          "author": "carol",
+          "permalink": "/r/ProgrammerHumor/comments/1ghi78/my_debugging_journey_a_saga/",
+          "score": 412,
+          "is_gallery": true,
+          "url": "https://www.reddit.com/gallery/1ghi78",
+          "gallery_data": {
+            "items": [
+              {"media_id": "ghijk890", "id": 1},
+              {"media_id": "lmnop123", "id": 2},
+              {"media_id": "noext999", "id": 3}
+            ]
+          },
+          "media_metadata": {
+            "ghijk890": {"status": "valid", "e": "Image", "m": "image/jpg"},
+            "lmnop123": {"status": "valid", "e": "Image", "m": "image/png"},
+            "noext999": {
+              "status": "valid",
+              "e": "Image",
+              "s": {"u": "https://preview.redd.it/noext999.jpg?width=960&s=cafe", "x": 960, "y": 720}
+            }
+          }
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1jkl90",
+          "title": "Text only confession",
+          "author": "dave",
+          "permalink": "/r/ProgrammerHumor/comments/1jkl90/text_only_confession/",
+          "score": -3,
+          "is_gallery": false,
+          "is_self": true,
+          "url": "https://www.reddit.com/r/ProgrammerHumor/comments/1jkl90/text_only_confession/",
+          "selftext": "I push straight to main."
+        }
+      }
+    ]
+  }
+}

@@ -15,6 +15,21 @@
   hour instead of a burst of three. Restart-safe — no long sleeps inside a
   job (`feat/staggered-publish`).
 
+### Fixed
+- Trend auto-publisher reads Reddit through the OAuth API
+  (`oauth.reddit.com`) instead of old.reddit's Atom feeds and HTML listings
+  (`fix/reddit-oauth-listings`). Reddit closed the anonymous routes: old.reddit
+  answers every logged-out request with the "Welcome to Reddit" login page
+  (HTTP 200, HTML), so the Atom parser died with "not well-formed (invalid
+  token)" on every run and the channel had been silent since 2026-08-10;
+  `www.reddit.com/*.json` answers 403. The API carries the score, the image and
+  the whole gallery in the same response, so a listing now costs one request
+  instead of two and `MIN_SCORE` keeps working. The publisher therefore needs
+  `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` / `REDDIT_REFRESH_TOKEN` — mint
+  the token with `tools/1_get_refresh_token.py --save`. When the API is
+  unreachable nothing is published (unchanged behaviour): no post is ever sent
+  below the score threshold.
+
 ### Fixed (deployment)
 - The container user's uid is now the `APP_UID` build argument (set it in
   `.env` to `id -u`, default 1000) instead of hardcoded 1000. On hosts where

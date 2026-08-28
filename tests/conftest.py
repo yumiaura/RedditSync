@@ -3,6 +3,7 @@
 The publisher modules import each other by bare name (``import trend_watcher``),
 so tests put app/ itself on sys.path instead of importing through a package.
 """
+import json
 import sys
 from pathlib import Path
 
@@ -17,7 +18,7 @@ if str(APP_DIR) not in sys.path:
 
 
 class FakeResponse:
-    """Stand-in for requests.Response: canned status, text, and content."""
+    """Stand-in for requests.Response: canned status, text, content and JSON."""
 
     def __init__(self, body, status_code=200):
         self.status_code = status_code
@@ -29,7 +30,7 @@ class FakeResponse:
             raise RuntimeError(f"HTTP {self.status_code}")
 
     def json(self):
-        raise RuntimeError("no JSON in fixture responses")
+        return json.loads(self.text)
 
 
 def fixture_text(name):
@@ -41,18 +42,13 @@ def fixture_bytes(name):
 
 
 @pytest.fixture
-def rising_atom_bytes():
-    return fixture_bytes("rising.atom.xml")
+def rising_json_text():
+    return fixture_text("rising.json")
 
 
 @pytest.fixture
-def rising_html_text():
-    return fixture_text("rising.html")
-
-
-@pytest.fixture
-def gallery_html_text():
-    return fixture_text("gallery.html")
+def rising_payload(rising_json_text):
+    return json.loads(rising_json_text)
 
 
 @pytest.fixture(autouse=True)

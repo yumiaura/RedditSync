@@ -44,11 +44,11 @@ def listing_chain():
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-def pick_unsent(connection, candidates, scores, threshold):
+def pick_unsent(connection, candidates, threshold):
     for candidate in candidates:
         if not candidate["reddit_id"] or not candidate["image_url"]:
             continue
-        if scores.get(candidate["reddit_id"], 0) < threshold:
+        if candidate.get("score", 0) < threshold:
             continue
         if published_store.is_published(connection, candidate["reddit_id"]):
             continue
@@ -59,26 +59,25 @@ def pick_unsent(connection, candidates, scores, threshold):
 def select_candidate(connection, subreddit, threshold):
     """Walk the listing chain until one yields an unsent post.
 
-    Returns (candidate, scores); (None, {}) when every listing comes up empty.
+    Returns the candidate, or None when every listing comes up empty.
     """
     for position, listing in enumerate(listing_chain()):
         if position:
             time.sleep(RATE_LIMIT_PAUSE)  # respect Reddit's rate limit
         try:
             candidates = trend_watcher.fetch_listing(subreddit, listing)
-            scores = trend_watcher.listing_scores(subreddit, listing)
         except Exception as error:
             logger.error("r/%s: could not fetch %s: %s", subreddit, listing, error)
             continue
-        choice = pick_unsent(connection, candidates, scores, threshold)
+        choice = pick_unsent(connection, candidates, threshold)
         if choice:
             if position:
                 logger.info("r/%s: picked from fallback listing '%s'",
                             subreddit, listing)
-            return choice, scores
+            return choice
         logger.info("r/%s: %s has no unposted image post with score >= %d",
                     subreddit, listing, threshold)
-    return None, {}
+    return None
 
 
 def publish_once(dry_run=False, subreddits=None):
@@ -103,18 +102,13 @@ def publish_once(dry_run=False, subreddits=None):
             if position:
                 time.sleep(RATE_LIMIT_PAUSE)  # respect Reddit's RSS rate limit
             threshold = min_score()
-            choice, scores = select_candidate(connection, subreddit, threshold)
+            choice = select_candidate(connection, subreddit, threshold)
             if not choice:
                 continue
-            score = scores.get(choice["reddit_id"], 0)
+            score = choice["score"]
             caption = telegram_publisher.build_caption(
                 choice["title"], subreddit, choice["permalink"])
-            images = [choice["image_url"]]
-            if choice.get("is_gallery"):
-                gallery = trend_watcher.gallery_image_urls(
-                    choice["permalink"], choice["reddit_id"])
-                if len(gallery) > 1:
-                    images = gallery
+            images = choice["images"] or [choice["image_url"]]
             if dry_run:
                 logger.info("r/%s: would publish '%s' (%s), score %d, %d image(s)",
                             subreddit, choice["title"], choice["reddit_id"],

@@ -65,6 +65,15 @@ Add these to your `.env` (see `env.example`):
 | `PUBLISH_INTERVAL` | Minutes between subreddits within a slot | `60` |
 | `PUBLISHED_DB` | Path to the dedup SQLite store | `./data/published.sqlite` |
 
+### Getting Reddit OAuth credentials
+
+1. Create an app at [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps)
+   (type: **web app**, redirect uri: `http://127.0.0.1:8000`).
+2. Put `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` and
+   `REDIRECT_PORT=8000` in `.env`.
+3. Run `python tools/1_get_refresh_token.py --save` and approve access in the
+   browser — `REDDIT_REFRESH_TOKEN` is saved to `.env`.
+
 ### Running
 
 ```bash

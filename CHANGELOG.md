@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- README section "Getting Reddit OAuth credentials": link to
+  reddit.com/prefs/apps, the redirect uri to register and the
+  `tools/1_get_refresh_token.py --save` step (`docs/reddit-oauth-credentials`).
 - `.github/FUNDING.yml` with GitHub Sponsors, Buy Me a Coffee and Patreon links
   (`chore/funding`).
 - Configurable publish timezone: `PUBLISH_TIMES` slots are now interpreted in

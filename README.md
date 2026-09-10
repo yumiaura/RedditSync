@@ -2,7 +2,7 @@
 
 > 🤖 **This project powers a live Telegram channel** — twice a day it posts the
 > best rising memes from tracked subreddits.
-> **Follow it here → [t.me/humorfromyumi](https://t.me/humorfromyumi)**
+> **Follow it here → [t.me/yumiaurahumor](https://t.me/yumiaurahumor)**
 
 A Python application that watches Reddit, publishes trending posts to a Telegram
 channel, and (optionally) archives threads and their media into a local SQLite

@@ -41,7 +41,7 @@
             <div><strong>Comments:</strong> {{ item['comment_count'] or 0 }}</div>
             <div><strong>Posted:</strong> 
                 {% if item['created_utc'] %}
-                    {{ moment(item['created_utc']).format('YYYY-MM-DD HH:mm:ss') }}
+                    {{ item['created_utc'].strftime('%Y-%m-%d %H:%M:%S') }}
                 {% else %}
                     Unknown
                 {% endif %}

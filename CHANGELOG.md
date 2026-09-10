@@ -20,6 +20,12 @@
   job (`feat/staggered-publish`).
 
 ### Fixed
+- Web UI: the post page no longer crashes with "'moment' is undefined" — the
+  template called a `moment()` helper that was never defined; `created_utc`
+  (a unix timestamp) is now converted to a UTC datetime in the route and
+  formatted with `strftime`. The list and post pages now receive `score` and
+  `comment_count`, so they stop showing "0 points" / "0 comments" for every
+  post (`fix/web-ui-templates`).
 - Trend auto-publisher reads Reddit through the OAuth API
   (`oauth.reddit.com`) instead of old.reddit's Atom feeds and HTML listings
   (`fix/reddit-oauth-listings`). Reddit closed the anonymous routes: old.reddit

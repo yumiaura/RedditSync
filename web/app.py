@@ -4,6 +4,7 @@ This module provides a web interface for browsing downloaded Reddit content.
 Uses SQLAlchemy ORM for database operations and supports various media types.
 """
 import asyncio
+from datetime import datetime, timezone
 import io
 import logging
 import os
@@ -75,7 +76,9 @@ def index():
                     'media_uid': item.media_uid,
                     'author': item.author,
                     'added_at': item.added_at,
-                    'thread_id': item.thread_id
+                    'thread_id': item.thread_id,
+                    'score': item.score,
+                    'comment_count': item.comment_count
                 }
                 for item in news_items
             ]
@@ -103,9 +106,15 @@ def news_detail(news_id):
                     'external_id': item.external_id,
                     'media_uid': item.media_uid,
                     'media_url': item.media_url,
-                    'created_utc': item.created_utc,
+                    # created_utc is stored as a unix timestamp
+                    'created_utc': (
+                        datetime.fromtimestamp(item.created_utc, timezone.utc)
+                        if item.created_utc else None
+                    ),
                     'added_at': item.added_at,
                     'thread_id': item.thread_id,
+                    'score': item.score,
+                    'comment_count': item.comment_count,
                     'raw_json': item.raw_json
                 }
             return None

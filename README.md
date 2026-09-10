@@ -65,6 +65,34 @@ Add these to your `.env` (see `env.example`):
 | `PUBLISH_INTERVAL` | Minutes between subreddits within a slot | `60` |
 | `PUBLISHED_DB` | Path to the dedup SQLite store | `./data/published.sqlite` |
 
+### Getting Reddit OAuth credentials
+
+A regular app on your own Reddit account plus a refresh token from the OAuth2
+authorization code flow.
+
+1. Create an app at https://www.reddit.com/prefs/apps
+   - type: **web app**
+   - redirect uri: `http://127.0.0.1:8000`
+2. Add to `.env`:
+   ```
+   REDDIT_CLIENT_ID=<app id>
+   REDDIT_CLIENT_SECRET=<app secret>
+   REDDIT_USER_AGENT=<your User-Agent>
+   REDIRECT_PORT=8000
+   ```
+3. Run the script
+   ([`tools/1_get_refresh_token.py`](https://github.com/yumiaura/RedditSync/blob/main/tools/1_get_refresh_token.py)):
+   ```bash
+   python tools/1_get_refresh_token.py --save
+   ```
+   It opens the authorization page https://www.reddit.com/api/v1/authorize
+   (scope: `read`, duration: `permanent`) in the browser, catches the code on
+   `http://127.0.0.1:8000`, exchanges it for tokens at
+   https://www.reddit.com/api/v1/access_token and saves `REDDIT_REFRESH_TOKEN`
+   to `.env`.
+4. From then on the publisher mints a short-lived access token from the
+   refresh token by itself and reads listings through https://oauth.reddit.com
+
 ### Running
 
 ```bash

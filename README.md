@@ -67,12 +67,31 @@ Add these to your `.env` (see `env.example`):
 
 ### Getting Reddit OAuth credentials
 
-1. Create an app at [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps)
-   (type: **web app**, redirect uri: `http://127.0.0.1:8000`).
-2. Put `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT` and
-   `REDIRECT_PORT=8000` in `.env`.
-3. Run `python tools/1_get_refresh_token.py --save` and approve access in the
-   browser — `REDDIT_REFRESH_TOKEN` is saved to `.env`.
+A regular app on your own Reddit account plus a refresh token from the OAuth2
+authorization code flow.
+
+1. Create an app at https://www.reddit.com/prefs/apps
+   - type: **web app**
+   - redirect uri: `http://127.0.0.1:8000`
+2. Add to `.env`:
+   ```
+   REDDIT_CLIENT_ID=<app id>
+   REDDIT_CLIENT_SECRET=<app secret>
+   REDDIT_USER_AGENT=<your User-Agent>
+   REDIRECT_PORT=8000
+   ```
+3. Run the script
+   ([`tools/1_get_refresh_token.py`](https://github.com/yumiaura/RedditSync/blob/main/tools/1_get_refresh_token.py)):
+   ```bash
+   python tools/1_get_refresh_token.py --save
+   ```
+   It opens the authorization page https://www.reddit.com/api/v1/authorize
+   (scope: `read`, duration: `permanent`) in the browser, catches the code on
+   `http://127.0.0.1:8000`, exchanges it for tokens at
+   https://www.reddit.com/api/v1/access_token and saves `REDDIT_REFRESH_TOKEN`
+   to `.env`.
+4. From then on the publisher mints a short-lived access token from the
+   refresh token by itself and reads listings through https://oauth.reddit.com
 
 ### Running
 
